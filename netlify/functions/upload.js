@@ -2,7 +2,6 @@ const fetch = require('node-fetch');
 const FormData = require('form-data');
 
 exports.handler = async function (event, context) {
-  // Chỉ chấp nhận phương thức POST
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
@@ -13,15 +12,14 @@ exports.handler = async function (event, context) {
       return { statusCode: 400, body: 'Missing image data' };
     }
 
-    // Lấy API key từ biến môi trường (an toàn)
     const apiKey = process.env.IMGBB_API_KEY;
     if (!apiKey) {
-        return { statusCode: 500, body: 'API key is not configured on the server.' };
+      return { statusCode: 500, body: 'API key is missing on server.' };
     }
 
     const formData = new FormData();
     formData.append('key', apiKey);
-    formData.append('image', image); // Gửi dữ liệu base64
+    formData.append('image', image);
 
     const response = await fetch('https://api.imgbb.com/1/upload', {
       method: 'POST',
@@ -31,18 +29,18 @@ exports.handler = async function (event, context) {
     const result = await response.json();
 
     if (!result.success) {
-      // Ném lỗi nếu ImgBB trả về lỗi
-      throw new Error(result.error?.message || 'ImgBB API error');
+      throw new Error(result.error?.message || 'ImgBB upload failed');
     }
 
+    // ✅ KHÔNG trả về bất kỳ thông tin nào về ảnh
     return {
       statusCode: 200,
-      body: JSON.stringify(result),
+      body: JSON.stringify({ success: true }),
     };
   } catch (error) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: error.message }),
+      body: JSON.stringify({ success: false, error: 'Server error.' }),
     };
   }
 };
