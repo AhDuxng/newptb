@@ -13,7 +13,7 @@ const errorMessage = ref('');
 
 // --- Ref cho việc tải lên ImgBB ---
 const isUploading = ref(false);
-const uploadedImageUrl = ref(null); // <<< THAY ĐỔI: Quay lại sử dụng một URL duy nhất
+const uploadedImageUrl = ref(null);
 
 // --- Các ref cho tính năng khung ảnh ---
 const activeFrameType = ref('single');
@@ -53,9 +53,9 @@ const suggestedColors = ref(['#FFFFFF', '#000000', '#FFD700', '#F08080', '#ADD8E
 let stream = null;
 let captureLoopTimeout = null;
 
-// --- <<< THAY ĐỔI: Hàm upload được đơn giản hóa, chỉ tải lên ảnh ghép cuối cùng ---
+// --- Hàm upload chỉ tải lên ảnh ghép cuối cùng ---
 const uploadToImgBB = async () => {
-  if (!photoData.value) return; // Chỉ kiểm tra ảnh ghép cuối cùng
+  if (!photoData.value) return;
 
   isUploading.value = true;
   uploadedImageUrl.value = null;
@@ -70,7 +70,7 @@ const uploadToImgBB = async () => {
     });
     const result = await response.json();
     if (response.ok && result.success) {
-      uploadedImageUrl.value = result.data.url; // Lưu URL duy nhất
+      uploadedImageUrl.value = result.data.url;
     } else {
       throw new Error(result.error || 'Lỗi từ server');
     }
@@ -163,12 +163,20 @@ const generateFinalImage = async (backgroundColor) => {
   isPhotoTaken.value = true;
   stopCamera();
   
-  uploadToImgBB(); // Gọi hàm upload đã được đơn giản hóa
+  // <<< THAY ĐỔI: Không gọi upload trực tiếp ở đây nữa
 };
 
+// <<< THAY ĐỔI: Theo dõi sự thay đổi của màu khung để vẽ lại ảnh
 watch(frameColor, (newColor) => {
   if (isPhotoTaken.value) {
     generateFinalImage(newColor);
+  }
+});
+
+// <<< THAY ĐỔI: Theo dõi khi ảnh ghép được tạo xong thì mới bắt đầu tải lên
+watch(photoData, (newValue, oldValue) => {
+  if (newValue && !oldValue) {
+    uploadToImgBB();
   }
 });
 
@@ -184,7 +192,7 @@ const resetState = () => {
   isContinuousShooting.value = false;
   frameColor.value = '#FFFFFF';
   isUploading.value = false;
-  uploadedImageUrl.value = null; // <<< THAY ĐỔI: Reset URL duy nhất
+  uploadedImageUrl.value = null;
   if (captureLoopTimeout) clearTimeout(captureLoopTimeout);
 };
 
@@ -428,7 +436,6 @@ onUnmounted(() => {
 
           <div v-if="errorMessage" class="text-center text-red-600 bg-red-100 p-3 rounded-lg mb-4">{{ errorMessage }}</div>
           
-          <!-- <<< THAY ĐỔI: Giao diện hiển thị kết quả tải lên đã được đơn giản hóa -->
           <div v-if="isUploading" class="text-center text-sky-600 p-3 rounded-lg mb-4">
             <div class="flex justify-center items-center">
               <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-sky-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -446,7 +453,6 @@ onUnmounted(() => {
                   <button @click="copyUrl(uploadedImageUrl)" class="px-3 py-1 text-xs bg-sky-500 text-white rounded-md hover:bg-sky-600 transition-transform hover:scale-105">Sao chép</button>
               </div>
           </div>
-          <!-- Kết thúc thay đổi giao diện -->
 
           <div class="flex flex-col justify-center items-center gap-4 mt-4">
             <div class="flex flex-wrap justify-center items-center gap-4">
