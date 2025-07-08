@@ -51,6 +51,10 @@ const isContinuousShooting = ref(false);
 const frameColor = ref('#FFFFFF');
 const suggestedColors = ref(['#FFFFFF', '#000000', '#FFD700', '#F08080', '#ADD8E6', '#90EE90']);
 
+// --- Refs for download delay ---
+const isDownloadReady = ref(false);
+const downloadCountdown = ref(5);
+let downloadTimer = null;
 let stream = null;
 let captureLoopTimeout = null;
 
@@ -198,6 +202,18 @@ const generateFinalImage = async (backgroundColor) => {
   isPhotoTaken.value = true;
   stopCamera();
   uploadToImgBB();
+
+  // --- Start download countdown ---
+  isDownloadReady.value = false;
+  downloadCountdown.value = 5;
+  if(downloadTimer) clearInterval(downloadTimer);
+  downloadTimer = setInterval(() => {
+    downloadCountdown.value--;
+    if (downloadCountdown.value <= 0) {
+      clearInterval(downloadTimer);
+      isDownloadReady.value = true;
+    }
+  }, 1000);
 };
 
 watch(frameColor, (newColor) => {
@@ -221,6 +237,11 @@ const resetState = () => {
   isUploading.value = false;
   uploadedImageUrl.value = null;
   if (captureLoopTimeout) clearTimeout(captureLoopTimeout);
+  
+  // Reset download state
+  if (downloadTimer) clearInterval(downloadTimer);
+  isDownloadReady.value = false;
+  downloadCountdown.value = 5;
 };
 
 const startCamera = async () => {
@@ -397,14 +418,14 @@ const captureButtonText = computed(() => {
 onUnmounted(() => {
   stopCamera();
   if (captureLoopTimeout) clearTimeout(captureLoopTimeout);
+  if (downloadTimer) clearInterval(downloadTimer);
 });
 </script>
 
 <template>
   <div class="flex flex-col items-center p-4 md:p-8 bg-sky-50 min-h-screen font-inter">
-    <h1 class="text-4xl font-bold text-sky-700 mb-6 font-poppins">🎨 Photobooth Pro 🎨</h1>
-
-    <div class="w-full max-w-5xl flex flex-col md:flex-row gap-8">
+    <!-- Title Removed as requested -->
+    <div class="w-full max-w-5xl flex flex-col md:flex-row gap-8 pt-8">
       
       <div class="w-full md:w-1/4 flex flex-col">
         <div class="bg-white p-4 rounded-xl shadow-md">
@@ -523,7 +544,15 @@ onUnmounted(() => {
                   <input type="color" v-model="frameColor" id="frameColor" class="w-8 h-8 p-0 border-none rounded-full cursor-pointer bg-transparent" style="height: 2rem; width: 2rem;">
                 </div>
                 
-                <a :href="photoData" :download="`photobooth-${activeFrameType}-${Date.now()}.png`" class="text-center px-6 py-3 bg-green-500 text-white font-semibold rounded-full hover:bg-green-600 transition-all duration-300 shadow-md">Tải xuống</a>
+                <a 
+                  :href="isDownloadReady ? photoData : '#'" 
+                  :download="isDownloadReady ? `photobooth-${activeFrameType}-${Date.now()}.png` : null"
+                  @click="!isDownloadReady && $event.preventDefault()"
+                  class="flex items-center justify-center w-40 text-center px-6 py-3 text-white font-semibold rounded-full transition-colors duration-300 shadow-md"
+                  :class="isDownloadReady ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-400 cursor-not-allowed'">
+                  <span v-if="isDownloadReady">Tải xuống</span>
+                  <span v-else>Đợi {{ downloadCountdown }}s...</span>
+                </a>
               </template>
             </div>
           </div>
