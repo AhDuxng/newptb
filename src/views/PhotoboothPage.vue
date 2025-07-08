@@ -523,18 +523,6 @@ onUnmounted(() => {
                 </div>
                 
                 <a :href="photoData" :download="`photobooth-${activeFrameType}-${Date.now()}.png`" class="text-center px-6 py-3 bg-green-500 text-white font-semibold rounded-full hover:bg-green-600 transition-all duration-300 shadow-md">Tải xuống</a>
-                
-                <!-- ImgBB Upload Button -->
-                <button @click="uploadToImgBB" :disabled="isUploading" class="px-6 py-3 bg-blue-500 text-white font-semibold rounded-full hover:bg-blue-600 transition-all duration-300 shadow-md disabled:bg-gray-400">
-                  <span v-if="isUploading">Đang tải lên...</span>
-                  <span v-else>Tải lên ImgBB</span>
-                </button>
-
-                <!-- Display uploaded URL and Copy button -->
-                <div v-if="uploadedImageUrl" class="flex items-center gap-2 bg-gray-100 p-2 rounded-lg text-sm text-gray-700 max-w-full overflow-hidden">
-                  <span class="truncate">{{ uploadedImageUrl }}</span>
-                  <button @click="copyUrl(uploadedImageUrl)" class="ml-2 px-3 py-1 bg-gray-300 rounded-md text-xs font-semibold hover:bg-gray-400">Sao chép</button>
-                </div>
               </template>
             </div>
           </div>
