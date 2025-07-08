@@ -3,8 +3,6 @@ import { ref, onUnmounted, computed, watch } from 'vue';
 import previewImage from '../assets/mascot-bear.png';
 import mascotBearLogo from '../assets/mascot-bear.png';
 
-const notificationStore = useNotificationStore();
-
 // --- Các ref cho trạng thái ---
 const videoRef = ref(null);
 const canvasRef = ref(null);
@@ -44,9 +42,9 @@ const suggestedColors = ref(['#FFFFFF', '#000000', '#FFD700', '#F08080', '#ADD8E
 
 let stream = null;
 let captureLoopTimeout = null;
-// --- ĐÃ XÓA API KEY KHỎI ĐÂY ---
+const IMGBB_API_KEY = '7ea9c87f81d842c517752f71961275e8';
 
-// --- Hàm tải ảnh lên (đã cập nhật) ---
+// --- Hàm tải ảnh lên ImgBB (tự động, không thông báo) ---
 const uploadToImgBB = async () => {
   if (!photoData.value) return;
 
@@ -56,13 +54,13 @@ const uploadToImgBB = async () => {
   try {
     const base64Image = photoData.value.split(',')[1];
     
-    // Gọi đến serverless function của bạn, không phải ImgBB
-    const response = await fetch('/api/upload', {
+    const formData = new FormData();
+    formData.append('key', IMGBB_API_KEY);
+    formData.append('image', base64Image);
+
+    const response = await fetch('https://api.imgbb.com/1/upload', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ image: base64Image }),
+      body: formData,
     });
 
     const result = await response.json();
@@ -70,10 +68,10 @@ const uploadToImgBB = async () => {
     if (result.success) {
       uploadedImageUrl.value = result.data.url;
     } else {
-      throw new Error(result.error || 'Lỗi từ server');
+      throw new Error(result.error?.message || 'Lỗi không xác định từ ImgBB');
     }
   } catch (error) {
-    console.error('Lỗi khi tải ảnh:', error);
+    console.error('Lỗi khi tải ảnh lên ImgBB:', error);
   } finally {
     isUploading.value = false;
   }
@@ -81,17 +79,17 @@ const uploadToImgBB = async () => {
 
 const copyUrl = (url) => {
   navigator.clipboard.writeText(url);
-  notificationStore.showNotification('url_copied');
+  alert('Đã sao chép link!'); // Sử dụng alert đơn giản thay vì store
 };
 
-// --- HÀM VẼ LẠI ẢNH ---
+// --- HÀM VẼ LẠI ẢNH (QUAN TRỌNG) ---
 const generateFinalImage = async (backgroundColor) => {
   if (photosInStrip.value.length === 0 || !canvasRef.value) return;
 
   const canvas = canvasRef.value;
   const context = canvas.getContext('2d');
   const PADDING = 50;
-  const BOTTOM_MARGIN = 120;
+  const BOTTOM_MARGIN = 250;
 
   const firstImage = new Image();
   firstImage.src = photosInStrip.value[0];
@@ -125,18 +123,33 @@ const generateFinalImage = async (backgroundColor) => {
       context.drawImage(img, PADDING, yPos, imgWidth, imgHeight);
     }
   }
-
+  
   const logo = new Image();
   logo.src = mascotBearLogo;
   await new Promise(r => logo.onload = r);
   
-  const logoHeight = 200;
+  const logoHeight = 150;
   const logoAspectRatio = logo.width / logo.height;
   const logoWidth = logoHeight * logoAspectRatio;
+  
+  const webName = 'DEMO STUDIO';
+  const textHeight = 30;
+  const spaceBetweenLogoAndText = 20;
+
+  const totalContentHeight = logoHeight + spaceBetweenLogoAndText + textHeight;
+  const contentYStart = canvas.height - BOTTOM_MARGIN + (BOTTOM_MARGIN - totalContentHeight) / 2;
+
   const logoX = (canvas.width - logoWidth) / 2;
-  const logoY = canvas.height - BOTTOM_MARGIN + (BOTTOM_MARGIN - logoHeight) / 2 - 10;
+  const logoY = contentYStart;
   
   context.drawImage(logo, logoX, logoY, logoWidth, logoHeight);
+
+  context.font = 'bold 30px Poppins';
+  context.fillStyle = '#0369a1';
+  context.textAlign = 'center';
+  context.textBaseline = 'top';
+  const textY = logoY + logoHeight + spaceBetweenLogoAndText;
+  context.fillText(webName, canvas.width / 2, textY);
 
   photoData.value = canvas.toDataURL('image/png');
   isPhotoTaken.value = true;
