@@ -13,7 +13,7 @@ const errorMessage = ref('');
 
 // --- Ref cho việc tải lên ImgBB ---
 const isUploading = ref(false);
-const uploadedImageUrl = ref(null);
+const uploadedImageUrl = ref(null); // <<< THAY ĐỔI: Quay lại sử dụng một URL duy nhất
 
 // --- Các ref cho tính năng khung ảnh ---
 const activeFrameType = ref('single');
@@ -53,11 +53,14 @@ const suggestedColors = ref(['#FFFFFF', '#000000', '#FFD700', '#F08080', '#ADD8E
 let stream = null;
 let captureLoopTimeout = null;
 
-// --- Hàm tải ảnh lên ImgBB (an toàn, gọi qua backend) ---
+// --- <<< THAY ĐỔI: Hàm upload được đơn giản hóa, chỉ tải lên ảnh ghép cuối cùng ---
 const uploadToImgBB = async () => {
-  if (!photoData.value) return;
+  if (!photoData.value) return; // Chỉ kiểm tra ảnh ghép cuối cùng
+
   isUploading.value = true;
   uploadedImageUrl.value = null;
+  errorMessage.value = '';
+
   try {
     const base64Image = photoData.value.split(',')[1];
     const response = await fetch('/api/upload', {
@@ -67,7 +70,7 @@ const uploadToImgBB = async () => {
     });
     const result = await response.json();
     if (response.ok && result.success) {
-      uploadedImageUrl.value = result.data.url;
+      uploadedImageUrl.value = result.data.url; // Lưu URL duy nhất
     } else {
       throw new Error(result.error || 'Lỗi từ server');
     }
@@ -78,6 +81,7 @@ const uploadToImgBB = async () => {
     isUploading.value = false;
   }
 };
+
 
 const copyUrl = (url) => {
   navigator.clipboard.writeText(url);
@@ -159,7 +163,7 @@ const generateFinalImage = async (backgroundColor) => {
   isPhotoTaken.value = true;
   stopCamera();
   
-  uploadToImgBB();
+  uploadToImgBB(); // Gọi hàm upload đã được đơn giản hóa
 };
 
 watch(frameColor, (newColor) => {
@@ -180,7 +184,7 @@ const resetState = () => {
   isContinuousShooting.value = false;
   frameColor.value = '#FFFFFF';
   isUploading.value = false;
-  uploadedImageUrl.value = null;
+  uploadedImageUrl.value = null; // <<< THAY ĐỔI: Reset URL duy nhất
   if (captureLoopTimeout) clearTimeout(captureLoopTimeout);
 };
 
@@ -214,7 +218,6 @@ const selectFrame = (type) => {
   if (isCameraOn.value) retakePhoto();
 };
 
-// <<-- HÀM CHỤP ẢNH ĐÃ SỬA ĐỂ CẮT ẢNH VÀ ÁP DỤNG FILTER -->>
 const captureFrame = () => {
   if (!videoRef.value || !canvasRef.value) return null;
 
@@ -358,7 +361,7 @@ onUnmounted(() => {
                 :class="[activeFrameType === 'single' ? 'border-sky-500 ring-2 ring-sky-300' : 'border-gray-200']"
               >
                 <div class="w-24 h-32 bg-gray-300 rounded-sm mx-auto flex items-center justify-center overflow-hidden">
-                   <img v-if="activeFrameType === 'single' && photosInStrip.length > 0" :src="photosInStrip[0]" class="w-full h-full object-cover">
+                    <img v-if="activeFrameType === 'single' && photosInStrip.length > 0" :src="photosInStrip[0]" class="w-full h-full object-cover">
                 </div>
               </div>
               <p class="text-center mt-2 text-sm font-medium" :class="[activeFrameType === 'single' ? 'text-sky-600' : 'text-gray-600 group-hover:text-sky-500']">Ảnh đơn</p>
@@ -425,20 +428,40 @@ onUnmounted(() => {
 
           <div v-if="errorMessage" class="text-center text-red-600 bg-red-100 p-3 rounded-lg mb-4">{{ errorMessage }}</div>
           
-          <div class="flex flex-col justify-center items-center gap-4">
+          <!-- <<< THAY ĐỔI: Giao diện hiển thị kết quả tải lên đã được đơn giản hóa -->
+          <div v-if="isUploading" class="text-center text-sky-600 p-3 rounded-lg mb-4">
+            <div class="flex justify-center items-center">
+              <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-sky-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <span>Đang tải ảnh lên, vui lòng chờ...</span>
+            </div>
+          </div>
+
+          <div v-if="isPhotoTaken && uploadedImageUrl" class="mt-4 w-full bg-sky-50 p-4 rounded-lg">
+              <h4 class="text-md font-semibold text-sky-700 mb-2">Link ảnh đã tải lên:</h4>
+              <div class="flex items-center gap-2 bg-white p-2 rounded-lg shadow-sm">
+                  <input type="text" :value="uploadedImageUrl" readonly class="flex-grow bg-transparent text-sky-800 text-sm focus:outline-none">
+                  <button @click="copyUrl(uploadedImageUrl)" class="px-3 py-1 text-xs bg-sky-500 text-white rounded-md hover:bg-sky-600 transition-transform hover:scale-105">Sao chép</button>
+              </div>
+          </div>
+          <!-- Kết thúc thay đổi giao diện -->
+
+          <div class="flex flex-col justify-center items-center gap-4 mt-4">
             <div class="flex flex-wrap justify-center items-center gap-4">
               <template v-if="!isPhotoTaken">
                 <button v-if="!isCameraOn" @click="startCamera" class="w-full sm:w-auto px-8 py-3 bg-sky-500 text-white font-semibold rounded-full hover:bg-sky-600 transition-all duration-300 shadow-md transform hover:scale-105">Bật Camera</button>
                 
                 <template v-else>
-                   <button :disabled="isCapturing" @click="handlePrimaryCapture" class="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 bg-red-500 text-white font-semibold rounded-full hover:bg-red-600 transition-all duration-300 shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed transform hover:scale-105" :class="{'animate-pulse': isCapturing && !isContinuousShooting}">
-                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                     <span>{{ captureButtonText }}</span>
-                   </button>
+                    <button :disabled="isCapturing" @click="handlePrimaryCapture" class="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 bg-red-500 text-white font-semibold rounded-full hover:bg-red-600 transition-all duration-300 shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed transform hover:scale-105" :class="{'animate-pulse': isCapturing && !isContinuousShooting}">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                      <span>{{ captureButtonText }}</span>
+                    </button>
 
-                   <button v-if="activeFrameType === 'strip'" @click="toggleContinuousShooting" class="w-full sm:w-auto px-6 py-3 font-semibold rounded-full transition-all duration-300 shadow-md transform hover:scale-105" :class="[isContinuousShooting ? 'bg-purple-600 text-white animate-pulse' : 'bg-gray-200 text-gray-800 hover:bg-gray-300']" :disabled="isCapturing && !isContinuousShooting">
+                    <button v-if="activeFrameType === 'strip'" @click="toggleContinuousShooting" class="w-full sm:w-auto px-6 py-3 font-semibold rounded-full transition-all duration-300 shadow-md transform hover:scale-105" :class="[isContinuousShooting ? 'bg-purple-600 text-white animate-pulse' : 'bg-gray-200 text-gray-800 hover:bg-gray-300']" :disabled="isCapturing && !isContinuousShooting">
                       {{ isContinuousShooting ? 'Dừng chụp' : 'Chụp liên tục' }}
-                   </button>
+                    </button>
                 </template>
               </template>
               
