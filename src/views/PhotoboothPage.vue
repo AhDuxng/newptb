@@ -76,7 +76,7 @@ const uploadToImgBB = async () => {
 
 const copyUrl = (url) => {
   navigator.clipboard.writeText(url);
-  alert('Đã sao chép link!'); // Sử dụng alert đơn giản
+  alert('Đã sao chép link!');
 };
 
 // --- HÀM VẼ LẠI ẢNH ---
@@ -216,41 +216,49 @@ const captureFrame = () => {
   return canvas.toDataURL('image/png');
 };
 
+// <<-- HÀM ĐÃ ĐƯỢC CẬP NHẬT LOGIC -->>
 const runCaptureCycle = () => {
-  if (stripCaptureStep.value >= 4 || !isCameraOn.value) {
-    isCapturing.value = false;
-    isContinuousShooting.value = false;
-    return;
-  }
+  if (isCapturing.value || !isCameraOn.value) return;
+
   isCapturing.value = true;
   countdown.value = selectedCaptureTime.value;
+
   const countdownTimer = setInterval(() => {
     countdown.value--;
     if (countdown.value <= 0) {
       clearInterval(countdownTimer);
+      
       const capturedPhoto = captureFrame();
       if (!capturedPhoto) {
         isCapturing.value = false;
-        isContinuousShooting.value = false;
         return;
       }
-      photosInStrip.value.push(capturedPhoto);
       
-      if (activeFrameType.value === 'single' || stripCaptureStep.value >= 3) {
+      photosInStrip.value.push(capturedPhoto);
+
+      if (activeFrameType.value === 'single') {
         generateFinalImage(frameColor.value);
         isCapturing.value = false;
-        isContinuousShooting.value = false;
-      } else {
+      } else { // Chế độ dải ảnh
         stripCaptureStep.value++;
-        if (isContinuousShooting.value) {
-          captureLoopTimeout = setTimeout(runCaptureCycle, 1500);
-        } else {
+        
+        if (stripCaptureStep.value >= 4) {
+          generateFinalImage(frameColor.value);
           isCapturing.value = false;
+          isContinuousShooting.value = false;
+        } else {
+          // Nếu đang chụp liên tục thì tự động chụp tiếp
+          if (isContinuousShooting.value) {
+            captureLoopTimeout = setTimeout(runCaptureCycle, 1500);
+          } else {
+            isCapturing.value = false; // Mở khóa nút chụp cho lần tiếp theo
+          }
         }
       }
     }
   }, 1000);
 };
+
 
 const handlePrimaryCapture = () => {
   if (isCapturing.value) return;
@@ -261,7 +269,9 @@ const handlePrimaryCapture = () => {
 
 const toggleContinuousShooting = () => {
   if (isCapturing.value && !isContinuousShooting.value) return;
+  
   isContinuousShooting.value = !isContinuousShooting.value;
+  
   if (isContinuousShooting.value) {
     runCaptureCycle();
   } else {
