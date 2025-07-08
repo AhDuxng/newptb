@@ -506,8 +506,6 @@ onUnmounted(() => {
                 </div>
               </div>
             </div>
-
-          <div v-if="errorMessage" class="text-center text-red-600 bg-red-100 p-3 rounded-lg mb-4">{{ errorMessage }}</div>
           
           <div class="flex flex-col justify-center items-center gap-4">
             <div class="flex flex-wrap justify-center items-center gap-4">
