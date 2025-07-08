@@ -3,6 +3,8 @@ import { ref, onUnmounted, computed, watch } from 'vue';
 import previewImage from '../assets/mascot-bear.png';
 import mascotBearLogo from '../assets/mascot-bear.png';
 
+const notificationStore = useNotificationStore();
+
 // --- Các ref cho trạng thái ---
 const videoRef = ref(null);
 const canvasRef = ref(null);
@@ -42,9 +44,9 @@ const suggestedColors = ref(['#FFFFFF', '#000000', '#FFD700', '#F08080', '#ADD8E
 
 let stream = null;
 let captureLoopTimeout = null;
-const IMGBB_API_KEY = '7ea9c87f81d842c517752f71961275e8';
+// --- ĐÃ XÓA API KEY KHỎI ĐÂY ---
 
-// --- Hàm tải ảnh lên ImgBB (tự động, không thông báo) ---
+// --- Hàm tải ảnh lên (đã cập nhật) ---
 const uploadToImgBB = async () => {
   if (!photoData.value) return;
 
@@ -54,13 +56,13 @@ const uploadToImgBB = async () => {
   try {
     const base64Image = photoData.value.split(',')[1];
     
-    const formData = new FormData();
-    formData.append('key', IMGBB_API_KEY);
-    formData.append('image', base64Image);
-
-    const response = await fetch('https://api.imgbb.com/1/upload', {
+    // Gọi đến serverless function của bạn, không phải ImgBB
+    const response = await fetch('/api/upload', {
       method: 'POST',
-      body: formData,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ image: base64Image }),
     });
 
     const result = await response.json();
@@ -68,11 +70,10 @@ const uploadToImgBB = async () => {
     if (result.success) {
       uploadedImageUrl.value = result.data.url;
     } else {
-      throw new Error(result.error?.message || 'Lỗi không xác định từ ImgBB');
+      throw new Error(result.error || 'Lỗi từ server');
     }
   } catch (error) {
-    console.error('Lỗi khi tải ảnh lên ImgBB:', error);
-    // Không hiển thị thông báo lỗi cho người dùng
+    console.error('Lỗi khi tải ảnh:', error);
   } finally {
     isUploading.value = false;
   }
@@ -80,10 +81,10 @@ const uploadToImgBB = async () => {
 
 const copyUrl = (url) => {
   navigator.clipboard.writeText(url);
-  // Có thể thêm thông báo nhỏ ở đây nếu muốn, ví dụ: alert('Đã sao chép link!');
+  notificationStore.showNotification('url_copied');
 };
 
-// --- HÀM VẼ LẠI ẢNH (QUAN TRỌNG) ---
+// --- HÀM VẼ LẠI ẢNH ---
 const generateFinalImage = async (backgroundColor) => {
   if (photosInStrip.value.length === 0 || !canvasRef.value) return;
 
@@ -101,7 +102,6 @@ const generateFinalImage = async (backgroundColor) => {
 
   context.setTransform(1, 0, 0, 1, 0, 0);
 
-  // Thiết lập kích thước canvas và vẽ nền
   if (activeFrameType.value === 'single') {
     canvas.width = imgWidth + PADDING * 2;
     canvas.height = imgHeight + PADDING * 2 + BOTTOM_MARGIN;
@@ -126,7 +126,6 @@ const generateFinalImage = async (backgroundColor) => {
     }
   }
 
-  // Vẽ logo
   const logo = new Image();
   logo.src = mascotBearLogo;
   await new Promise(r => logo.onload = r);
@@ -143,7 +142,6 @@ const generateFinalImage = async (backgroundColor) => {
   isPhotoTaken.value = true;
   stopCamera();
   
-  // Tự động tải lên ImgBB
   uploadToImgBB();
 };
 
@@ -406,11 +404,28 @@ onUnmounted(() => {
                 <a :href="photoData" :download="`photobooth-${activeFrameType}-${Date.now()}.png`" class="text-center px-6 py-3 bg-green-500 text-white font-semibold rounded-full hover:bg-green-600 transition-all duration-300 shadow-md">Tải xuống</a>
               </template>
             </div>
+            
+            <div v-if="isPhotoTaken" class="mt-4 w-full max-w-md text-center">
+              <div v-if="isUploading" class="p-3 bg-sky-100 border border-sky-300 rounded-lg animate-pulse">
+                <p class="font-semibold text-sky-800 flex items-center justify-center">
+                  <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-sky-800" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Đang tự động lưu ảnh trực tuyến...
+                </p>
+              </div>
+              <div v-if="uploadedImageUrl" class="p-4 bg-green-100 border border-green-300 rounded-lg shadow">
+                <p class="font-semibold text-green-800">Lưu trữ thành công! Link ảnh:</p>
+                <a :href="uploadedImageUrl" target="_blank" class="text-blue-600 hover:underline break-all">{{ uploadedImageUrl }}</a>
+                <button @click="copyUrl(uploadedImageUrl)" class="ml-4 mt-2 sm:mt-0 px-3 py-1 bg-green-500 text-white text-sm rounded-full hover:bg-green-600">Sao chép</button>
+              </div>
             </div>
           </div>
         </div>
       </div>
     </div>
+  </div>
 </template>
 
 <style scoped>
