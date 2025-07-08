@@ -218,7 +218,7 @@ const captureFrame = () => {
 
 // <<-- HÀM ĐÃ ĐƯỢC CẬP NHẬT LOGIC -->>
 const runCaptureCycle = () => {
-  if (isCapturing.value || !isCameraOn.value) return;
+  if (isCapturing.value || !isCameraOn.value || (activeFrameType.value === 'strip' && stripCaptureStep.value >= 4)) return;
 
   isCapturing.value = true;
   countdown.value = selectedCaptureTime.value;
@@ -238,20 +238,20 @@ const runCaptureCycle = () => {
 
       if (activeFrameType.value === 'single') {
         generateFinalImage(frameColor.value);
-        isCapturing.value = false;
+        isCapturing.value = false; // Dừng lại sau khi chụp xong
       } else { // Chế độ dải ảnh
         stripCaptureStep.value++;
         
         if (stripCaptureStep.value >= 4) {
+          // Đã chụp đủ 4 tấm
           generateFinalImage(frameColor.value);
           isCapturing.value = false;
           isContinuousShooting.value = false;
         } else {
-          // Nếu đang chụp liên tục thì tự động chụp tiếp
+          // Chưa đủ 4 tấm
+          isCapturing.value = false; // <<-- SỬA LỖI: Reset trạng thái để vòng lặp tiếp theo có thể chạy
           if (isContinuousShooting.value) {
-            captureLoopTimeout = setTimeout(runCaptureCycle, 1500);
-          } else {
-            isCapturing.value = false; // Mở khóa nút chụp cho lần tiếp theo
+            captureLoopTimeout = setTimeout(runCaptureCycle, 1000); // Chờ 1s rồi chụp tiếp
           }
         }
       }
@@ -259,11 +259,12 @@ const runCaptureCycle = () => {
   }, 1000);
 };
 
-
 const handlePrimaryCapture = () => {
   if (isCapturing.value) return;
+  // Đảm bảo chế độ liên tục tắt khi nhấn nút chụp thường
   isContinuousShooting.value = false;
   if(captureLoopTimeout) clearTimeout(captureLoopTimeout);
+  
   runCaptureCycle();
 };
 
@@ -273,8 +274,9 @@ const toggleContinuousShooting = () => {
   isContinuousShooting.value = !isContinuousShooting.value;
   
   if (isContinuousShooting.value) {
-    runCaptureCycle();
+    runCaptureCycle(); // Bắt đầu vòng lặp
   } else {
+    // Ngừng vòng lặp nếu đang chạy
     if (captureLoopTimeout) clearTimeout(captureLoopTimeout);
   }
 };
@@ -291,7 +293,10 @@ const applyFilter = (filterClass) => {
 
 const captureButtonText = computed(() => {
   if (activeFrameType.value === 'strip' && isCameraOn.value && !isPhotoTaken) {
-    return `Chụp ảnh (${stripCaptureStep.value + 1}/4)`;
+    if (stripCaptureStep.value < 4) {
+      return `Chụp ảnh (${stripCaptureStep.value + 1}/4)`;
+    }
+    return 'Hoàn tất';
   }
   return 'Chụp ảnh';
 });
