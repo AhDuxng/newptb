@@ -33,7 +33,7 @@ const filters = ref([
   { name: 'Mùa hè', class: 'filter-summer' },
 ]);
 
-// Map để chuyển class filter thành giá trị CSS cho canvas
+// <<-- MỚI: Map để chuyển class filter thành giá trị CSS -->>
 const filterCssMap = {
   'filter-none': 'none',
   'filter-contrast': 'contrast(140%)',
@@ -42,6 +42,7 @@ const filterCssMap = {
   'filter-vintage': 'sepia(65%) contrast(110%) brightness(90%) saturate(130%)',
   'filter-summer': 'contrast(110%) brightness(110%) saturate(150%) hue-rotate(-10deg)',
 };
+
 
 // --- Ref cho tùy chỉnh ---
 const captureTimeOptions = ref([3, 5, 10]);
@@ -53,14 +54,11 @@ const suggestedColors = ref(['#FFFFFF', '#000000', '#FFD700', '#F08080', '#ADD8E
 let stream = null;
 let captureLoopTimeout = null;
 
-// --- Hàm upload chỉ tải lên ảnh ghép cuối cùng ---
+// --- Hàm tải ảnh lên ImgBB (an toàn, gọi qua backend) ---
 const uploadToImgBB = async () => {
   if (!photoData.value) return;
-
   isUploading.value = true;
   uploadedImageUrl.value = null;
-  errorMessage.value = '';
-
   try {
     const base64Image = photoData.value.split(',')[1];
     const response = await fetch('/api/upload', {
@@ -82,32 +80,31 @@ const uploadToImgBB = async () => {
   }
 };
 
-
 const copyUrl = (url) => {
   navigator.clipboard.writeText(url);
   alert('Đã sao chép link!');
 };
 
-// --- HÀM VẼ LẠI ẢNH ---
+// --- HÀM VẼ LẠI ẢNH (ĐÃ ĐƠN GIẢN HÓA) ---
 const generateFinalImage = async (backgroundColor) => {
   if (photosInStrip.value.length === 0 || !canvasRef.value) return;
 
   const canvas = canvasRef.value;
   const context = canvas.getContext('2d');
-  
-  const firstImage = new Image();
-  firstImage.src = photosInStrip.value[0];
-  await new Promise(resolve => firstImage.onload = resolve);
-  
-  const imgWidth = firstImage.width;
-  const imgHeight = firstImage.height;
+
+  const imgWidth = 1294; // Kích thước ảnh gốc đã cố định
+  const imgHeight = 974;
 
   const PADDING = 50;
-  const BOTTOM_MARGIN = 250;
+  const BOTTOM_MARGIN = 150;
 
   context.setTransform(1, 0, 0, 1, 0, 0);
 
   if (activeFrameType.value === 'single') {
+    const firstImage = new Image();
+    firstImage.src = photosInStrip.value[0];
+    await new Promise(resolve => firstImage.onload = resolve);
+    
     canvas.width = imgWidth + PADDING * 2;
     canvas.height = imgHeight + PADDING * 2 + BOTTOM_MARGIN;
     context.fillStyle = backgroundColor;
@@ -136,13 +133,13 @@ const generateFinalImage = async (backgroundColor) => {
   logo.src = mascotBearLogo;
   await new Promise(r => logo.onload = r);
   
-  const logoHeight = 150;
+  const logoHeight = 100;
   const logoAspectRatio = logo.width / logo.height;
   const logoWidth = logoHeight * logoAspectRatio;
   
   const webName = 'DEMO STUDIO';
   const textHeight = 30;
-  const spaceBetweenLogoAndText = 20;
+  const spaceBetweenLogoAndText = 15;
 
   const totalContentHeight = logoHeight + spaceBetweenLogoAndText + textHeight;
   const contentYStart = canvas.height - BOTTOM_MARGIN + (BOTTOM_MARGIN - totalContentHeight) / 2;
@@ -162,21 +159,12 @@ const generateFinalImage = async (backgroundColor) => {
   photoData.value = canvas.toDataURL('image/png');
   isPhotoTaken.value = true;
   stopCamera();
-  
-  // <<< THAY ĐỔI: Không gọi upload trực tiếp ở đây nữa
+  uploadToImgBB();
 };
 
-// <<< THAY ĐỔI: Theo dõi sự thay đổi của màu khung để vẽ lại ảnh
 watch(frameColor, (newColor) => {
   if (isPhotoTaken.value) {
     generateFinalImage(newColor);
-  }
-});
-
-// <<< THAY ĐỔI: Theo dõi khi ảnh ghép được tạo xong thì mới bắt đầu tải lên
-watch(photoData, (newValue, oldValue) => {
-  if (newValue && !oldValue) {
-    uploadToImgBB();
   }
 });
 
@@ -201,8 +189,7 @@ const startCamera = async () => {
   try {
     stream = await navigator.mediaDevices.getUserMedia({
       video: {
-        width: { ideal: 1280 },
-        height: { ideal: 720 },
+        width: { ideal: 1920 }, // Yêu cầu độ phân giải cao
         facingMode: 'user'
       },
       audio: false
@@ -226,6 +213,7 @@ const selectFrame = (type) => {
   if (isCameraOn.value) retakePhoto();
 };
 
+// <<-- HÀM CHỤP ẢNH ĐÃ VIẾT LẠI HOÀN TOÀN ĐỂ CẮT ẢNH VÀ ÁP DỤNG FILTER -->>
 const captureFrame = () => {
   if (!videoRef.value || !canvasRef.value) return null;
 
@@ -246,23 +234,30 @@ const captureFrame = () => {
 
   let sx = 0, sy = 0, sWidth = videoWidth, sHeight = videoHeight;
 
+  // Tính toán vùng cần cắt từ video gốc để vừa với tỉ lệ target
   if (videoAspectRatio > targetAspectRatio) {
+    // Video rộng hơn target -> cắt bớt chiều rộng
     sWidth = videoHeight * targetAspectRatio;
     sx = (videoWidth - sWidth) / 2;
   } else {
+    // Video cao hơn target -> cắt bớt chiều cao
     sHeight = videoWidth / targetAspectRatio;
     sy = (videoHeight - sHeight) / 2;
   }
   
-  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.setTransform(1, 0, 0, 1, 0, 0); // Reset transform
+
+  // Áp dụng bộ lọc trực tiếp vào canvas
   context.filter = filterCssMap[activeFilter.value] || 'none';
+  
+  // Lật ảnh
   context.translate(canvas.width, 0);
   context.scale(-1, 1);
-  context.drawImage(
-    video,
-    sx, sy, sWidth, sHeight,
-    0, 0, targetWidth, targetHeight
-  );
+  
+  // Vẽ phần video đã được cắt vào canvas
+  context.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
+
+  // Reset bộ lọc để không ảnh hưởng đến các lần vẽ sau (nếu có)
   context.filter = 'none';
 
   return canvas.toDataURL('image/png');
@@ -308,6 +303,7 @@ const runCaptureCycle = () => {
     }
   }, 1000);
 };
+
 
 const handlePrimaryCapture = () => {
   if (isCapturing.value) return;
@@ -369,7 +365,7 @@ onUnmounted(() => {
                 :class="[activeFrameType === 'single' ? 'border-sky-500 ring-2 ring-sky-300' : 'border-gray-200']"
               >
                 <div class="w-24 h-32 bg-gray-300 rounded-sm mx-auto flex items-center justify-center overflow-hidden">
-                    <img v-if="activeFrameType === 'single' && photosInStrip.length > 0" :src="photosInStrip[0]" class="w-full h-full object-cover">
+                   <img v-if="activeFrameType === 'single' && photosInStrip.length > 0" :src="photosInStrip[0]" class="w-full h-full object-cover">
                 </div>
               </div>
               <p class="text-center mt-2 text-sm font-medium" :class="[activeFrameType === 'single' ? 'text-sky-600' : 'text-gray-600 group-hover:text-sky-500']">Ảnh đơn</p>
@@ -409,13 +405,13 @@ onUnmounted(() => {
       <div class="w-full md:w-3/4">
         <div class="bg-white/60 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-sky-200">
           
-          <div class="relative w-full aspect-[1294/974] bg-gray-900 rounded-lg overflow-hidden flex items-center justify-center mb-6 shadow-inner mx-auto">
+          <div class="relative w-full aspect-video bg-gray-900 rounded-lg overflow-hidden flex items-center justify-center mb-6 shadow-inner mx-auto">
             <div v-if="!isCameraOn && !isPhotoTaken" class="h-full flex flex-col items-center justify-center text-center text-white p-4">
               <svg class="w-16 h-16 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
               <p class="mt-2 font-medium">Camera đang tắt</p>
               <p class="text-sm text-gray-300">Nhấn "Bật Camera" để bắt đầu</p>
             </div>
-            <video ref="videoRef" v-show="isCameraOn && !isPhotoTaken" :class="activeFilter" autoplay playsinline muted class="w-full h-full object-cover transition-all duration-300"></video>
+            <video ref="videoRef" v-show="isCameraOn && !isPhotoTaken" autoplay playsinline muted class="w-full h-full object-cover transition-all duration-300"></video>
             <img v-if="isPhotoTaken" :src="photoData" alt="Ảnh đã chụp" class="w-full h-full object-contain bg-transparent">
             
             <div v-if="countdown > 0" class="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-9xl font-bold z-20">{{ countdown }}</div>
@@ -436,38 +432,20 @@ onUnmounted(() => {
 
           <div v-if="errorMessage" class="text-center text-red-600 bg-red-100 p-3 rounded-lg mb-4">{{ errorMessage }}</div>
           
-          <div v-if="isUploading" class="text-center text-sky-600 p-3 rounded-lg mb-4">
-            <div class="flex justify-center items-center">
-              <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-sky-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              <span>Đang tải ảnh lên, vui lòng chờ...</span>
-            </div>
-          </div>
-
-          <div v-if="isPhotoTaken && uploadedImageUrl" class="mt-4 w-full bg-sky-50 p-4 rounded-lg">
-              <h4 class="text-md font-semibold text-sky-700 mb-2">Link ảnh đã tải lên:</h4>
-              <div class="flex items-center gap-2 bg-white p-2 rounded-lg shadow-sm">
-                  <input type="text" :value="uploadedImageUrl" readonly class="flex-grow bg-transparent text-sky-800 text-sm focus:outline-none">
-                  <button @click="copyUrl(uploadedImageUrl)" class="px-3 py-1 text-xs bg-sky-500 text-white rounded-md hover:bg-sky-600 transition-transform hover:scale-105">Sao chép</button>
-              </div>
-          </div>
-
-          <div class="flex flex-col justify-center items-center gap-4 mt-4">
+          <div class="flex flex-col justify-center items-center gap-4">
             <div class="flex flex-wrap justify-center items-center gap-4">
               <template v-if="!isPhotoTaken">
                 <button v-if="!isCameraOn" @click="startCamera" class="w-full sm:w-auto px-8 py-3 bg-sky-500 text-white font-semibold rounded-full hover:bg-sky-600 transition-all duration-300 shadow-md transform hover:scale-105">Bật Camera</button>
                 
                 <template v-else>
-                    <button :disabled="isCapturing" @click="handlePrimaryCapture" class="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 bg-red-500 text-white font-semibold rounded-full hover:bg-red-600 transition-all duration-300 shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed transform hover:scale-105" :class="{'animate-pulse': isCapturing && !isContinuousShooting}">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                      <span>{{ captureButtonText }}</span>
-                    </button>
+                   <button :disabled="isCapturing" @click="handlePrimaryCapture" class="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 bg-red-500 text-white font-semibold rounded-full hover:bg-red-600 transition-all duration-300 shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed transform hover:scale-105" :class="{'animate-pulse': isCapturing && !isContinuousShooting}">
+                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                     <span>{{ captureButtonText }}</span>
+                   </button>
 
-                    <button v-if="activeFrameType === 'strip'" @click="toggleContinuousShooting" class="w-full sm:w-auto px-6 py-3 font-semibold rounded-full transition-all duration-300 shadow-md transform hover:scale-105" :class="[isContinuousShooting ? 'bg-purple-600 text-white animate-pulse' : 'bg-gray-200 text-gray-800 hover:bg-gray-300']" :disabled="isCapturing && !isContinuousShooting">
+                   <button v-if="activeFrameType === 'strip'" @click="toggleContinuousShooting" class="w-full sm:w-auto px-6 py-3 font-semibold rounded-full transition-all duration-300 shadow-md transform hover:scale-105" :class="[isContinuousShooting ? 'bg-purple-600 text-white animate-pulse' : 'bg-gray-200 text-gray-800 hover:bg-gray-300']" :disabled="isCapturing && !isContinuousShooting">
                       {{ isContinuousShooting ? 'Dừng chụp' : 'Chụp liên tục' }}
-                    </button>
+                   </button>
                 </template>
               </template>
               
