@@ -33,7 +33,7 @@ const filters = ref([
   { name: 'Mùa hè', class: 'filter-summer' },
 ]);
 
-// <<-- MỚI: Map để chuyển class filter thành giá trị CSS -->>
+// Map để chuyển class filter thành giá trị CSS cho canvas
 const filterCssMap = {
   'filter-none': 'none',
   'filter-contrast': 'contrast(140%)',
@@ -42,7 +42,6 @@ const filterCssMap = {
   'filter-vintage': 'sepia(65%) contrast(110%) brightness(90%) saturate(130%)',
   'filter-summer': 'contrast(110%) brightness(110%) saturate(150%) hue-rotate(-10deg)',
 };
-
 
 // --- Ref cho tùy chỉnh ---
 const captureTimeOptions = ref([3, 5, 10]);
@@ -85,26 +84,26 @@ const copyUrl = (url) => {
   alert('Đã sao chép link!');
 };
 
-// --- HÀM VẼ LẠI ẢNH (ĐÃ ĐƠN GIẢN HÓA) ---
+// --- HÀM VẼ LẠI ẢNH ---
 const generateFinalImage = async (backgroundColor) => {
   if (photosInStrip.value.length === 0 || !canvasRef.value) return;
 
   const canvas = canvasRef.value;
   const context = canvas.getContext('2d');
-
-  const imgWidth = 1294; // Kích thước ảnh gốc đã cố định
-  const imgHeight = 974;
+  
+  const firstImage = new Image();
+  firstImage.src = photosInStrip.value[0];
+  await new Promise(resolve => firstImage.onload = resolve);
+  
+  const imgWidth = firstImage.width;
+  const imgHeight = firstImage.height;
 
   const PADDING = 50;
-  const BOTTOM_MARGIN = 150;
+  const BOTTOM_MARGIN = 250;
 
   context.setTransform(1, 0, 0, 1, 0, 0);
 
   if (activeFrameType.value === 'single') {
-    const firstImage = new Image();
-    firstImage.src = photosInStrip.value[0];
-    await new Promise(resolve => firstImage.onload = resolve);
-    
     canvas.width = imgWidth + PADDING * 2;
     canvas.height = imgHeight + PADDING * 2 + BOTTOM_MARGIN;
     context.fillStyle = backgroundColor;
@@ -133,13 +132,13 @@ const generateFinalImage = async (backgroundColor) => {
   logo.src = mascotBearLogo;
   await new Promise(r => logo.onload = r);
   
-  const logoHeight = 100;
+  const logoHeight = 150;
   const logoAspectRatio = logo.width / logo.height;
   const logoWidth = logoHeight * logoAspectRatio;
   
   const webName = 'DEMO STUDIO';
   const textHeight = 30;
-  const spaceBetweenLogoAndText = 15;
+  const spaceBetweenLogoAndText = 20;
 
   const totalContentHeight = logoHeight + spaceBetweenLogoAndText + textHeight;
   const contentYStart = canvas.height - BOTTOM_MARGIN + (BOTTOM_MARGIN - totalContentHeight) / 2;
@@ -159,6 +158,7 @@ const generateFinalImage = async (backgroundColor) => {
   photoData.value = canvas.toDataURL('image/png');
   isPhotoTaken.value = true;
   stopCamera();
+  
   uploadToImgBB();
 };
 
@@ -189,7 +189,8 @@ const startCamera = async () => {
   try {
     stream = await navigator.mediaDevices.getUserMedia({
       video: {
-        width: { ideal: 1920 }, // Yêu cầu độ phân giải cao
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
         facingMode: 'user'
       },
       audio: false
@@ -213,7 +214,7 @@ const selectFrame = (type) => {
   if (isCameraOn.value) retakePhoto();
 };
 
-// <<-- HÀM CHỤP ẢNH ĐÃ VIẾT LẠI HOÀN TOÀN ĐỂ CẮT ẢNH VÀ ÁP DỤNG FILTER -->>
+// <<-- HÀM CHỤP ẢNH ĐÃ SỬA ĐỂ CẮT ẢNH VÀ ÁP DỤNG FILTER -->>
 const captureFrame = () => {
   if (!videoRef.value || !canvasRef.value) return null;
 
@@ -234,30 +235,23 @@ const captureFrame = () => {
 
   let sx = 0, sy = 0, sWidth = videoWidth, sHeight = videoHeight;
 
-  // Tính toán vùng cần cắt từ video gốc để vừa với tỉ lệ target
   if (videoAspectRatio > targetAspectRatio) {
-    // Video rộng hơn target -> cắt bớt chiều rộng
     sWidth = videoHeight * targetAspectRatio;
     sx = (videoWidth - sWidth) / 2;
   } else {
-    // Video cao hơn target -> cắt bớt chiều cao
     sHeight = videoWidth / targetAspectRatio;
     sy = (videoHeight - sHeight) / 2;
   }
   
-  context.setTransform(1, 0, 0, 1, 0, 0); // Reset transform
-
-  // Áp dụng bộ lọc trực tiếp vào canvas
+  context.setTransform(1, 0, 0, 1, 0, 0);
   context.filter = filterCssMap[activeFilter.value] || 'none';
-  
-  // Lật ảnh
   context.translate(canvas.width, 0);
   context.scale(-1, 1);
-  
-  // Vẽ phần video đã được cắt vào canvas
-  context.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
-
-  // Reset bộ lọc để không ảnh hưởng đến các lần vẽ sau (nếu có)
+  context.drawImage(
+    video,
+    sx, sy, sWidth, sHeight,
+    0, 0, targetWidth, targetHeight
+  );
   context.filter = 'none';
 
   return canvas.toDataURL('image/png');
@@ -303,7 +297,6 @@ const runCaptureCycle = () => {
     }
   }, 1000);
 };
-
 
 const handlePrimaryCapture = () => {
   if (isCapturing.value) return;
@@ -405,13 +398,13 @@ onUnmounted(() => {
       <div class="w-full md:w-3/4">
         <div class="bg-white/60 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-sky-200">
           
-          <div class="relative w-full aspect-video bg-gray-900 rounded-lg overflow-hidden flex items-center justify-center mb-6 shadow-inner mx-auto">
+          <div class="relative w-full aspect-[1294/974] bg-gray-900 rounded-lg overflow-hidden flex items-center justify-center mb-6 shadow-inner mx-auto">
             <div v-if="!isCameraOn && !isPhotoTaken" class="h-full flex flex-col items-center justify-center text-center text-white p-4">
               <svg class="w-16 h-16 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
               <p class="mt-2 font-medium">Camera đang tắt</p>
               <p class="text-sm text-gray-300">Nhấn "Bật Camera" để bắt đầu</p>
             </div>
-            <video ref="videoRef" v-show="isCameraOn && !isPhotoTaken" autoplay playsinline muted class="w-full h-full object-cover transition-all duration-300"></video>
+            <video ref="videoRef" v-show="isCameraOn && !isPhotoTaken" :class="activeFilter" autoplay playsinline muted class="w-full h-full object-cover transition-all duration-300"></video>
             <img v-if="isPhotoTaken" :src="photoData" alt="Ảnh đã chụp" class="w-full h-full object-contain bg-transparent">
             
             <div v-if="countdown > 0" class="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-9xl font-bold z-20">{{ countdown }}</div>
