@@ -21,11 +21,13 @@ exports.handler = async function (event, context) {
 
     const formData = new FormData();
     formData.append('key', apiKey);
-    formData.append('image', image); // Gửi dữ liệu base64
+    formData.append('image', image);
 
     const response = await fetch('https://api.imgbb.com/1/upload', {
       method: 'POST',
       body: formData,
+      // <<-- SỬA LỖI: Thêm dòng headers này -->>
+      headers: formData.getHeaders(),
     });
 
     const result = await response.json();
@@ -40,6 +42,7 @@ exports.handler = async function (event, context) {
       body: JSON.stringify(result),
     };
   } catch (error) {
+    console.error("Upload function error:", error);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: error.message }),
