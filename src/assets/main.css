@@ -1,0 +1,61 @@
+@import './base.css';
+
+body {
+  font-family: 'Be Vietnam Pro', sans-serif;
+}
+
+/* --- Font & Hiệu ứng Chữ --- */
+.font-poppins {
+  font-family: 'Poppins', sans-serif;
+}
+.text-stack-effect {
+  text-shadow: 3px 3px 0px #bae6fd, 6px 6px 0px #38bdf8;
+  transition: text-shadow 0.3s ease;
+}
+.text-stack-effect:hover {
+  text-shadow: 2px 2px 0px #bae6fd, 4px 4px 0px #38bdf8, 8px 8px 10px rgba(56, 189, 248, 0.3);
+}
+
+/* --- Animations --- */
+.fade-in-up {
+  animation: fadeInUp 1s ease-out forwards;
+  opacity: 0;
+}
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- Hiệu ứng bong bóng (phiên bản ổn định) --- */
+.bubble {
+  position: absolute;
+  bottom: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, rgba(14, 165, 233, 0.25), rgba(14, 165, 233, 0.05));
+  border: 2px solid rgba(14, 165, 233, 0.2);
+  box-shadow: 0 0 10px rgba(14, 165, 233, 0.2), inset 0 0 5px rgba(14, 165, 233, 0.1);
+  
+  animation: float-up linear infinite;
+  will-change: transform;
+  transform: translateY(100%);
+}
+
+@keyframes float-up {
+  0% {
+    transform: translateY(100%) translateX(0);
+    opacity: 0.7;
+  }
+  25% {
+    transform: translateY(-25vh) translateX(20px);
+  }
+  50% {
+    transform: translateY(-50vh) translateX(-20px);
+  }
+  75% {
+    transform: translateY(-75vh) translateX(10px);
+  }
+  100% {
+    transform: translateY(-110vh) translateX(0);
+    opacity: 0;
+  }
+}

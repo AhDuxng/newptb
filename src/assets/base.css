@@ -1,0 +1,46 @@
+/* src/assets/base.css */
+
+/*
+  Phần Reset CSS đầy đủ được lấy từ file base.css cũ của bạn.
+  Điều này đảm bảo giao diện nhất quán trên mọi trình duyệt.
+*/
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  font-weight: normal;
+}
+
+/* Thiết lập các giá trị mặc định cho body.
+  Lưu ý: Chúng ta không khai báo font-family ở đây nữa, 
+  vì nó đã được định nghĩa trong main.css để nhất quán.
+*/
+body {
+  min-height: 100vh;
+  /* Giữ lại các thuộc tính làm mịn font chữ rất tốt từ file cũ */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  line-height: 1.6;
+  /* Các thuộc tính màu và nền sẽ do Tailwind CSS và các component quản lý */
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+  transition: opacity 0.3s;
+}
+
+a:hover {
+    opacity: 0.8;
+}
+
+img, picture, video, canvas, svg {
+  display: block;
+  max-width: 100%;
+}
+
+button, input, textarea, select {
+  font: inherit;
+}
