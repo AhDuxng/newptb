@@ -3,6 +3,8 @@ import { ref, onUnmounted, computed, watch } from 'vue';
 import previewImage from '../assets/mascot-bear.png';
 import mascotBearLogo from '../assets/mascot-bear.png';
 
+const notificationStore = useNotificationStore();
+
 // --- Các ref cho trạng thái ---
 const videoRef = ref(null);
 const canvasRef = ref(null);
@@ -42,9 +44,9 @@ const suggestedColors = ref(['#FFFFFF', '#000000', '#FFD700', '#F08080', '#ADD8E
 
 let stream = null;
 let captureLoopTimeout = null;
-const IMGBB_API_KEY = '7ea9c87f81d842c517752f71961275e8';
+// --- ĐÃ XÓA API KEY KHỎI ĐÂY ---
 
-// --- Hàm tải ảnh lên ImgBB (tự động, không thông báo) ---
+// --- Hàm tải ảnh lên (đã cập nhật để gọi backend) ---
 const uploadToImgBB = async () => {
   if (!photoData.value) return;
 
@@ -54,24 +56,25 @@ const uploadToImgBB = async () => {
   try {
     const base64Image = photoData.value.split(',')[1];
     
-    const formData = new FormData();
-    formData.append('key', IMGBB_API_KEY);
-    formData.append('image', base64Image);
-
-    const response = await fetch('https://api.imgbb.com/1/upload', {
+    // Gọi đến serverless function của bạn, không phải ImgBB
+    const response = await fetch('/api/upload', {
       method: 'POST',
-      body: formData,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ image: base64Image }),
     });
 
     const result = await response.json();
 
-    if (result.success) {
+    if (response.ok && result.success) {
       uploadedImageUrl.value = result.data.url;
     } else {
-      throw new Error(result.error?.message || 'Lỗi không xác định từ ImgBB');
+      throw new Error(result.error || 'Lỗi từ server');
     }
   } catch (error) {
-    console.error('Lỗi khi tải ảnh lên ImgBB:', error);
+    console.error('Lỗi khi tải ảnh:', error);
+    // Không hiển thị thông báo lỗi cho người dùng
   } finally {
     isUploading.value = false;
   }
@@ -79,10 +82,10 @@ const uploadToImgBB = async () => {
 
 const copyUrl = (url) => {
   navigator.clipboard.writeText(url);
-  alert('Đã sao chép link!'); // Sử dụng alert đơn giản thay vì store
+  notificationStore.showNotification('url_copied');
 };
 
-// --- HÀM VẼ LẠI ẢNH (QUAN TRỌNG) ---
+// --- HÀM VẼ LẠI ẢNH ---
 const generateFinalImage = async (backgroundColor) => {
   if (photosInStrip.value.length === 0 || !canvasRef.value) return;
 
@@ -191,6 +194,7 @@ const startCamera = async () => {
     isCameraOn.value = true;
   } catch (error) {
     errorMessage.value = "Không thể truy cập camera. Vui lòng kiểm tra lại quyền và thiết bị.";
+    notificationStore.showNotification('camera_error');
   }
 };
 
@@ -266,8 +270,10 @@ const toggleContinuousShooting = () => {
   if (isCapturing.value && !isContinuousShooting.value) return;
   isContinuousShooting.value = !isContinuousShooting.value;
   if (isContinuousShooting.value) {
+    notificationStore.showNotification('continuous_start');
     runCaptureCycle();
   } else {
+    notificationStore.showNotification('continuous_stop');
     if (captureLoopTimeout) clearTimeout(captureLoopTimeout);
   }
 };
