@@ -79,74 +79,113 @@ const copyUrl = (url) => {
   alert('Đã sao chép link!');
 };
 
-// --- HÀM VẼ LẠI ẢNH ---
+// --- HÀM VẼ LẠI ẢNH (ĐÃ VIẾT LẠI HOÀN TOÀN) ---
 const generateFinalImage = async (backgroundColor) => {
   if (photosInStrip.value.length === 0 || !canvasRef.value) return;
 
   const canvas = canvasRef.value;
   const context = canvas.getContext('2d');
-  const PADDING = 50;
-  const BOTTOM_MARGIN = 250;
+  
+  // Kích thước cố định cho ảnh kết quả
+  const finalCanvasWidth = 1294;
+  const finalCanvasHeight = 974;
+  
+  canvas.width = finalCanvasWidth;
+  canvas.height = finalCanvasHeight;
 
+  // Vẽ nền
+  context.fillStyle = backgroundColor;
+  context.fillRect(0, 0, finalCanvasWidth, finalCanvasHeight);
+
+  // Lấy ảnh đầu tiên để biết tỉ lệ gốc
   const firstImage = new Image();
   firstImage.src = photosInStrip.value[0];
   await new Promise(resolve => firstImage.onload = resolve);
+  const originalImgWidth = firstImage.width;
+  const originalImgHeight = firstImage.height;
 
-  const imgWidth = firstImage.width;
-  const imgHeight = firstImage.height;
-
-  context.setTransform(1, 0, 0, 1, 0, 0);
+  // Các thông số layout
+  const PADDING = 60;
+  const BOTTOM_MARGIN = 150;
 
   if (activeFrameType.value === 'single') {
-    canvas.width = imgWidth + PADDING * 2;
-    canvas.height = imgHeight + PADDING * 2 + BOTTOM_MARGIN;
-    context.fillStyle = backgroundColor;
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.drawImage(firstImage, PADDING, PADDING, imgWidth, imgHeight);
-  } else {
-    const BORDER_WIDTH = 50;
-    canvas.width = imgWidth + PADDING * 2;
-    canvas.height = (imgHeight * 4) + PADDING * 2 + (BORDER_WIDTH * 3) + BOTTOM_MARGIN;
+    // Vùng vẽ ảnh (trừ padding và lề đáy)
+    const photoAreaWidth = finalCanvasWidth - PADDING * 2;
+    const photoAreaHeight = finalCanvasHeight - PADDING * 2 - BOTTOM_MARGIN;
     
-    context.fillStyle = backgroundColor;
-    context.fillRect(0, 0, canvas.width, canvas.height);
+    // Tính toán tỉ lệ co giãn để vừa khung mà không méo ảnh
+    const scale = Math.min(photoAreaWidth / originalImgWidth, photoAreaHeight / originalImgHeight);
+    const scaledWidth = originalImgWidth * scale;
+    const scaledHeight = originalImgHeight * scale;
 
+    // Căn giữa ảnh trong vùng vẽ
+    const photoX = (finalCanvasWidth - scaledWidth) / 2;
+    const photoY = PADDING + (photoAreaHeight - scaledHeight) / 2;
+
+    context.drawImage(firstImage, photoX, photoY, scaledWidth, scaledHeight);
+
+  } else { // Chế độ dải 4 ảnh
+    const BORDER_WIDTH = 15; // Viền giữa các ảnh
+    const stripAreaWidth = finalCanvasWidth - PADDING * 2;
+    const stripAreaHeight = finalCanvasHeight - PADDING * 2 - BOTTOM_MARGIN;
+
+    // Tính toán kích thước 1 tấm ảnh con dựa trên chiều rộng của dải
+    let scaledPhotoWidth = stripAreaWidth;
+    let scaledPhotoHeight = scaledPhotoWidth * (originalImgHeight / originalImgWidth);
+
+    // Tính tổng chiều cao của dải ảnh
+    let totalStripContentHeight = (scaledPhotoHeight * 4) + (BORDER_WIDTH * 3);
+    
+    // Nếu tổng chiều cao vượt quá vùng vẽ, co dãn lại toàn bộ dải ảnh theo chiều cao
+    if (totalStripContentHeight > stripAreaHeight) {
+      const scale = stripAreaHeight / totalStripContentHeight;
+      scaledPhotoWidth *= scale;
+      scaledPhotoHeight *= scale;
+    }
+
+    // Căn giữa toàn bộ dải ảnh trong vùng vẽ
+    const finalStripHeight = (scaledPhotoHeight * 4) + (BORDER_WIDTH * 3);
+    const stripX = (finalCanvasWidth - scaledPhotoWidth) / 2;
+    const stripYStart = PADDING + (stripAreaHeight - finalStripHeight) / 2;
+    
     for (let i = 0; i < 4; i++) {
       if (!photosInStrip.value[i]) continue;
       const img = new Image();
       img.src = photosInStrip.value[i];
       await new Promise(r => img.onload = r);
-      const yPos = PADDING + (i * imgHeight) + (i * BORDER_WIDTH);
-      context.drawImage(img, PADDING, yPos, imgWidth, imgHeight);
+      
+      const yPos = stripYStart + (i * (scaledPhotoHeight + BORDER_WIDTH));
+      context.drawImage(img, stripX, yPos, scaledPhotoWidth, scaledPhotoHeight);
     }
   }
   
+  // Vẽ Logo và Tên Web
   const logo = new Image();
   logo.src = mascotBearLogo;
   await new Promise(r => logo.onload = r);
   
-  const logoHeight = 150;
+  const logoHeight = 80;
   const logoAspectRatio = logo.width / logo.height;
   const logoWidth = logoHeight * logoAspectRatio;
   
   const webName = 'DEMO STUDIO';
-  const textHeight = 30;
-  const spaceBetweenLogoAndText = 20;
+  const textHeight = 25;
+  const spaceBetweenLogoAndText = 15;
 
   const totalContentHeight = logoHeight + spaceBetweenLogoAndText + textHeight;
-  const contentYStart = canvas.height - BOTTOM_MARGIN + (BOTTOM_MARGIN - totalContentHeight) / 2;
+  const contentYStart = finalCanvasHeight - BOTTOM_MARGIN + (BOTTOM_MARGIN - totalContentHeight) / 2;
 
-  const logoX = (canvas.width - logoWidth) / 2;
+  const logoX = (finalCanvasWidth - logoWidth) / 2;
   const logoY = contentYStart;
   
   context.drawImage(logo, logoX, logoY, logoWidth, logoHeight);
 
-  context.font = 'bold 30px Poppins';
+  context.font = 'bold 25px Poppins';
   context.fillStyle = '#0369a1';
   context.textAlign = 'center';
   context.textBaseline = 'top';
   const textY = logoY + logoHeight + spaceBetweenLogoAndText;
-  context.fillText(webName, canvas.width / 2, textY);
+  context.fillText(webName, finalCanvasWidth / 2, textY);
 
   photoData.value = canvas.toDataURL('image/png');
   isPhotoTaken.value = true;
@@ -216,7 +255,6 @@ const captureFrame = () => {
   return canvas.toDataURL('image/png');
 };
 
-// <<-- HÀM ĐÃ ĐƯỢC CẬP NHẬT LOGIC -->>
 const runCaptureCycle = () => {
   if (isCapturing.value || !isCameraOn.value || (activeFrameType.value === 'strip' && stripCaptureStep.value >= 4)) return;
 
@@ -238,20 +276,18 @@ const runCaptureCycle = () => {
 
       if (activeFrameType.value === 'single') {
         generateFinalImage(frameColor.value);
-        isCapturing.value = false; // Dừng lại sau khi chụp xong
-      } else { // Chế độ dải ảnh
+        isCapturing.value = false;
+      } else {
         stripCaptureStep.value++;
         
         if (stripCaptureStep.value >= 4) {
-          // Đã chụp đủ 4 tấm
           generateFinalImage(frameColor.value);
           isCapturing.value = false;
           isContinuousShooting.value = false;
         } else {
-          // Chưa đủ 4 tấm
-          isCapturing.value = false; // <<-- SỬA LỖI: Reset trạng thái để vòng lặp tiếp theo có thể chạy
+          isCapturing.value = false;
           if (isContinuousShooting.value) {
-            captureLoopTimeout = setTimeout(runCaptureCycle, 1000); // Chờ 1s rồi chụp tiếp
+            captureLoopTimeout = setTimeout(runCaptureCycle, 1000);
           }
         }
       }
@@ -259,9 +295,9 @@ const runCaptureCycle = () => {
   }, 1000);
 };
 
+
 const handlePrimaryCapture = () => {
   if (isCapturing.value) return;
-  // Đảm bảo chế độ liên tục tắt khi nhấn nút chụp thường
   isContinuousShooting.value = false;
   if(captureLoopTimeout) clearTimeout(captureLoopTimeout);
   
@@ -274,9 +310,8 @@ const toggleContinuousShooting = () => {
   isContinuousShooting.value = !isContinuousShooting.value;
   
   if (isContinuousShooting.value) {
-    runCaptureCycle(); // Bắt đầu vòng lặp
+    runCaptureCycle();
   } else {
-    // Ngừng vòng lặp nếu đang chạy
     if (captureLoopTimeout) clearTimeout(captureLoopTimeout);
   }
 };
