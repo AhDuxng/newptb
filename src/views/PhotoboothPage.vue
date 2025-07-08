@@ -3,7 +3,7 @@ import { ref, onUnmounted, computed, watch } from 'vue';
 import previewImage from '../assets/mascot-bear.png'; // Make sure this path is correct in your project
 import mascotBearLogo from '../assets/mascot-bear.png'; // Make sure this path is correct in your project
 
-// --- Các ref cho trạng thái ---
+// --- Refs for state ---
 const videoRef = ref(null);
 const canvasRef = ref(null);
 const isCameraOn = ref(false);
@@ -11,18 +11,18 @@ const isPhotoTaken = ref(false);
 const photoData = ref(null);
 const errorMessage = ref('');
 
-// --- Ref cho việc tải lên ImgBB ---
+// --- Ref for ImgBB upload ---
 const isUploading = ref(false);
 const uploadedImageUrl = ref(null);
 
-// --- Các ref cho tính năng khung ảnh ---
+// --- Refs for frame type features ---
 const activeFrameType = ref('single');
 const photosInStrip = ref([]);
 const stripCaptureStep = ref(0);
 const isCapturing = ref(false);
 const countdown = ref(0);
 
-// --- Các ref cho bộ lọc ---
+// --- Refs for filters ---
 const activeFilter = ref('filter-none');
 const filters = ref([
   { name: 'Gốc', class: 'filter-none' },
@@ -33,7 +33,7 @@ const filters = ref([
   { name: 'Mùa hè', class: 'filter-summer' },
 ]);
 
-// Map để chuyển class filter thành giá trị CSS
+// Map to convert filter class to CSS value
 const filterCssMap = {
   'filter-none': 'none',
   'filter-contrast': 'contrast(140%)',
@@ -44,7 +44,7 @@ const filterCssMap = {
 };
 
 
-// --- Ref cho tùy chỉnh ---
+// --- Refs for customization ---
 const captureTimeOptions = ref([3, 5, 10]);
 const selectedCaptureTime = ref(3);
 const isContinuousShooting = ref(false);
@@ -54,7 +54,7 @@ const suggestedColors = ref(['#FFFFFF', '#000000', '#FFD700', '#F08080', '#ADD8E
 let stream = null;
 let captureLoopTimeout = null;
 
-// --- Hàm tải ảnh lên ImgBB (an toàn, gọi qua backend) ---
+// --- Function to upload image to ImgBB (secure, via backend) ---
 const uploadToImgBB = async () => {
   if (!photoData.value) return;
   isUploading.value = true;
@@ -115,7 +115,7 @@ const showCustomMessageBox = (message) => {
 };
 
 
-// --- HÀM VẼ LẠI ẢNH (ĐÃ CẬP NHẬT KÍCH THƯỚC) ---
+// --- FUNCTION TO DRAW FINAL IMAGE (UPDATED DIMENSIONS AND TEXT POSITION) ---
 const generateFinalImage = async (backgroundColor) => {
   if (photosInStrip.value.length === 0 || !canvasRef.value) return;
 
@@ -175,8 +175,8 @@ const generateFinalImage = async (backgroundColor) => {
   const logoWidth = logoHeight * logoAspectRatio;
   
   const webName = 'DEMO STUDIO';
-  const textHeight = 30; // Approximation for text height
-  const spaceBetweenLogoAndText = 15;
+  const textHeight = 25; // Adjusted text height for better spacing
+  const spaceBetweenLogoAndText = 5; // Reduced space between logo and text
 
   const totalContentHeight = logoHeight + spaceBetweenLogoAndText + textHeight;
   const contentYStart = canvas.height - BOTTOM_MARGIN + (BOTTOM_MARGIN - totalContentHeight) / 2;
@@ -187,7 +187,7 @@ const generateFinalImage = async (backgroundColor) => {
   context.drawImage(logo, logoX, logoY, logoWidth, logoHeight);
 
   // Ensure 'Poppins' font is loaded or provide a fallback
-  context.font = 'bold 30px Poppins, sans-serif';
+  context.font = 'bold 25px Poppins, sans-serif'; // Adjusted font size slightly
   context.fillStyle = '#0369a1';
   context.textAlign = 'center';
   context.textBaseline = 'top';
@@ -253,7 +253,7 @@ const selectFrame = (type) => {
   if (isCameraOn.value) retakePhoto();
 };
 
-// --- HÀM CHỤP ẢNH ĐÃ CẬP NHẬT KÍCH THƯỚC ĐẦU RA ---
+// --- FUNCTION TO CAPTURE FRAME (UPDATED DIMENSIONS) ---
 const captureFrame = () => {
   if (!videoRef.value || !canvasRef.value) return null;
 
@@ -466,7 +466,8 @@ onUnmounted(() => {
               <p class="mt-2 font-medium">Camera đang tắt</p>
               <p class="text-sm text-gray-300">Nhấn "Bật Camera" để bắt đầu</p>
             </div>
-            <video ref="videoRef" v-show="isCameraOn && !isPhotoTaken" autoplay playsinline muted class="w-full h-full object-cover transition-all duration-300"></video>
+            <!-- Apply activeFilter class directly to the video element for live preview -->
+            <video ref="videoRef" v-show="isCameraOn && !isPhotoTaken" autoplay playsinline muted class="w-full h-full object-cover transition-all duration-300" :class="activeFilter"></video>
             <img v-if="isPhotoTaken" :src="photoData" alt="Ảnh đã chụp" class="w-full h-full object-contain bg-transparent">
             
             <div v-if="countdown > 0" class="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-9xl font-bold z-20">{{ countdown }}</div>
