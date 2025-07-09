@@ -24,6 +24,7 @@ const selectedOverlayFrame = ref(null);
 const availableFrames = ref({
   single: [
     '/frames/single/pinksingle.png',
+    '/frames/single/cutesingle.png',
   ],
   strip: [
     '/frames/strip/pinkstrip.png',
