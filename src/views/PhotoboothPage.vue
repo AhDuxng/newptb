@@ -62,12 +62,11 @@ let captureLoopTimeout = null;
 const uploadToImgBB = async () => {
   if (!photoData.value) return;
   isUploading.value = true;
-  uploadedImageUrl.value = null;
+  uploadedImageUrl.value = null; // Reset previous URL if any
   try {
     const base64Image = photoData.value.split(',')[1];
     // This API call assumes you have a backend endpoint '/api/upload'
     // that handles the actual upload to ImgBB using your API key.
-    // This is crucial for security as API keys should not be exposed client-side.
     const response = await fetch('/api/upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -75,7 +74,8 @@ const uploadToImgBB = async () => {
     });
     const result = await response.json();
     if (response.ok && result.success) {
-      uploadedImageUrl.value = result.data.url;
+      // The user does not need the URL functionality, so we just confirm the upload.
+      console.log('Upload successful!');
     } else {
       throw new Error(result.error || 'Lỗi từ server');
     }
@@ -129,8 +129,8 @@ const generateFinalImage = async (backgroundColor) => {
   // Define image dimensions based on active frame type
   const singleImgWidth = 1294;
   const singleImgHeight = 974;
-  const stripImgWidth = 863; // New width for strip photos
-  const stripImgHeight = 649; // New height for strip photos
+  const stripImgWidth = 863;
+  const stripImgHeight = 649;
   const twoByThreeImgWidth = 863; // Same as strip for ratio
   const twoByThreeImgHeight = 649; // Same as strip for ratio
 
@@ -319,8 +319,8 @@ const captureFrame = () => {
   // Determine target dimensions for the captured frame based on active frame type
   const targetWidthSingle = 1294;
   const targetHeightSingle = 974;
-  const targetWidthStrip = 863; // New target width for strip photos
-  const targetHeightStrip = 649; // New target height for strip photos
+  const targetWidthStrip = 863; 
+  const targetHeightStrip = 649; 
   const targetWidth2x3 = 863; // Same as strip
   const targetHeight2x3 = 649; // Same as strip
 
@@ -380,7 +380,7 @@ const captureFrame = () => {
 
 
 const runCaptureCycle = () => {
-  // Prevent multiple capture cycles from running simultaneously or if already completed for strip
+  // Prevent multiple capture cycles from running simultaneously or if already completed
   const totalPhotos = activeFrameType.value === 'strip' ? 4 : (activeFrameType.value === '2x3' ? 6 : 1);
   if (isCapturing.value || !isCameraOn.value || (activeFrameType.value !== 'single' && stripCaptureStep.value >= totalPhotos)) return;
 
