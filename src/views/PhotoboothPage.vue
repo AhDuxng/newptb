@@ -493,8 +493,27 @@ onUnmounted(() => {
                   </div>
                   <p class="mt-1.5 text-xs font-semibold transition-colors duration-200" :class="[activeFilter === filter.class ? 'text-sky-600' : 'text-gray-600 group-hover:text-sky-500']">{{ filter.name }}</p>
                 </div>
-              </div>                
-         
+              </div>
+            </div>
+          
+          <div class="flex flex-col justify-center items-center gap-4">
+            <div v-if="isPhotoTaken" class="w-full max-w-md p-4 mb-4 text-center bg-sky-100 border border-sky-200 rounded-lg">
+              <div v-if="isUploading">
+                <p class="font-semibold text-sky-700">Đang tải ảnh lên, vui lòng chờ...</p>
+              </div>
+              <div v-else-if="uploadedImageUrl">
+                <p class="font-semibold text-green-700 mb-2">Tải lên thành công!</p>
+                <div class="flex items-center justify-center gap-2">
+                  <input :value="uploadedImageUrl" readonly class="w-full px-2 py-1 text-sm bg-white border border-gray-300 rounded-md">
+                  <button @click="copyUrl(uploadedImageUrl)" class="px-3 py-1 bg-sky-500 text-white text-sm font-semibold rounded-md hover:bg-sky-600">Sao chép</button>
+                </div>
+              </div>
+              <div v-else-if="uploadError">
+                <p class="font-semibold text-red-700">Tải lên thất bại</p>
+                <p class="text-xs text-red-600 mt-1">{{ uploadError }}</p>
+              </div>
+            </div>
+
             <div class="flex flex-wrap justify-center items-center gap-4">
               <template v-if="!isPhotoTaken">
                 <button v-if="!isCameraOn" @click="startCamera" class="w-full sm:w-auto px-8 py-3 bg-sky-500 text-white font-semibold rounded-full hover:bg-sky-600 transition-all duration-300 shadow-md transform hover:scale-105">Bật Camera</button>
