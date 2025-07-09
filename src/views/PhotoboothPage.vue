@@ -33,6 +33,7 @@ const availableFrames = ref({
     '/frames/strip/hellokittystrip.png',
   ],
   grid_2x3: [
+    '/frames/grid_2x3/cutegrid.png',
   ]
 });
 
