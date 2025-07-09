@@ -23,14 +23,12 @@ const countdown = ref(0);
 const selectedOverlayFrame = ref(null);
 const availableFrames = ref({
   single: [
-    '/frames/single/frame1-single.png',
-    '/frames/single/frame2-single.png',
+    '/frames/single/pinksingle.png',
   ],
   strip: [
-    '/frames/strip/frame1-strip.png',
+    '/frames/strip/pinkstrip.png',
   ],
   grid_2x3: [
-    '/frames/grid_2x3/frame1-grid.png',
   ]
 });
 
