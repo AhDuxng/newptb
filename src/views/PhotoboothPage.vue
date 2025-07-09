@@ -25,6 +25,7 @@ const availableFrames = ref({
   single: [
     '/frames/single/pinksingle.png',
     '/frames/single/cutesingle.png',
+    '/frames/single/hellokitty.png',
   ],
   strip: [
     '/frames/strip/pinkstrip.png',
@@ -611,4 +612,3 @@ input[type="color"]::-moz-color-swatch {
   border: 2px solid #e2e8f0;
 }
 </style>
-tôi muốn tạo 1 file .js riêng để quản lí các khung 
