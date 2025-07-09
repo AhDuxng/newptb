@@ -627,3 +627,4 @@ input[type="color"]::-moz-color-swatch {
   border: 2px solid #e2e8f0;
 }
 </style>
+tôi muốn tạo 1 file .js riêng để quản lí các khung 
