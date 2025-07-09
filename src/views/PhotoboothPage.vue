@@ -1,9 +1,9 @@
 <script setup>
 import { ref, onUnmounted, computed, watch } from 'vue';
-import previewImage from '../assets/mascot-bear.png'; // Make sure this path is correct in your project
-import mascotBearLogo from '../assets/mascot-bear.png'; // Make sure this path is correct in your project
+import previewImage from '../assets/mascot-bear.png';
+import mascotBearLogo from '../assets/mascot-bear.png';
 
-// --- Refs for state ---
+// --- Các biến ref cho trạng thái ---
 const videoRef = ref(null);
 const canvasRef = ref(null);
 const isCameraOn = ref(false);
@@ -11,18 +11,18 @@ const isPhotoTaken = ref(false);
 const photoData = ref(null);
 const errorMessage = ref('');
 
-// --- Ref for ImgBB upload ---
+// --- Ref cho việc tải ảnh lên ImgBB ---
 const isUploading = ref(false);
 const uploadedImageUrl = ref(null);
 
-// --- Refs for frame type features ---
+// --- Các ref cho tính năng loại khung ảnh ---
 const activeFrameType = ref('single');
 const photosInStrip = ref([]);
 const stripCaptureStep = ref(0);
 const isCapturing = ref(false);
 const countdown = ref(0);
 
-// --- Refs for filters ---
+// --- Các ref cho bộ lọc (filter) ---
 const activeFilter = ref('filter-none');
 const filters = ref([
   { name: 'Gốc', class: 'filter-none' },
@@ -33,7 +33,7 @@ const filters = ref([
   { name: 'Mùa hè', class: 'filter-summer' },
 ]);
 
-// Map to convert filter class to CSS value
+// Ánh xạ lớp filter sang giá trị CSS
 const filterCssMap = {
   'filter-none': 'none',
   'filter-contrast': 'contrast(140%)',
@@ -44,29 +44,27 @@ const filterCssMap = {
 };
 
 
-// --- Refs for customization ---
+// --- Các ref cho tùy chỉnh ---
 const captureTimeOptions = ref([3, 5, 10]);
 const selectedCaptureTime = ref(3);
 const isContinuousShooting = ref(false);
 const frameColor = ref('#FFFFFF');
 const suggestedColors = ref(['#FFFFFF', '#000000', '#FFD700', '#F08080', '#ADD8E6', '#90EE90']);
 
-// --- Refs for download delay ---
+// --- Các ref cho độ trễ tải xuống ---
 const isDownloadReady = ref(false);
 const downloadCountdown = ref(5);
 let downloadTimer = null;
 let stream = null;
 let captureLoopTimeout = null;
 
-// --- Function to upload image to ImgBB (secure, via backend) ---
+// --- Hàm tải ảnh lên ImgBB (an toàn, qua backend) ---
 const uploadToImgBB = async () => {
   if (!photoData.value) return;
   isUploading.value = true;
-  uploadedImageUrl.value = null; // Reset previous URL if any
+  uploadedImageUrl.value = null;
   try {
     const base64Image = photoData.value.split(',')[1];
-    // This API call assumes you have a backend endpoint '/api/upload'
-    // that handles the actual upload to ImgBB using your API key.
     const response = await fetch('/api/upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -74,8 +72,7 @@ const uploadToImgBB = async () => {
     });
     const result = await response.json();
     if (response.ok && result.success) {
-      // The user does not need the URL functionality, so we just confirm the upload.
-      console.log('Upload successful!');
+      uploadedImageUrl.value = result.data.url;
     } else {
       throw new Error(result.error || 'Lỗi từ server');
     }
@@ -88,30 +85,25 @@ const uploadToImgBB = async () => {
 };
 
 const copyUrl = (url) => {
-  // Using document.execCommand('copy') for better compatibility in iframe environments
   const el = document.createElement('textarea');
   el.value = url;
   document.body.appendChild(el);
   el.select();
   document.execCommand('copy');
   document.body.removeChild(el);
-  // Replace alert with a custom message box for better UX
   showCustomMessageBox('Đã sao chép link!');
 };
 
-// Custom message box function (replace alert)
 const showCustomMessageBox = (message) => {
   const messageBox = document.createElement('div');
   messageBox.className = 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black text-white px-6 py-3 rounded-lg shadow-lg z-50 opacity-0 transition-opacity duration-300';
   messageBox.textContent = message;
   document.body.appendChild(messageBox);
 
-  // Animate in
   setTimeout(() => {
     messageBox.style.opacity = '1';
   }, 10);
 
-  // Animate out and remove
   setTimeout(() => {
     messageBox.style.opacity = '0';
     messageBox.addEventListener('transitionend', () => messageBox.remove());
@@ -119,54 +111,39 @@ const showCustomMessageBox = (message) => {
 };
 
 
-// --- FUNCTION TO DRAW FINAL IMAGE (UPDATED DIMENSIONS AND TEXT POSITION) ---
+// --- HÀM VẼ ẢNH CUỐI CÙNG (ĐÃ CẬP NHẬT CHO KHUNG MỚI) ---
 const generateFinalImage = async (backgroundColor) => {
   if (photosInStrip.value.length === 0 || !canvasRef.value) return;
 
   const canvas = canvasRef.value;
   const context = canvas.getContext('2d');
 
-  // Define image dimensions based on active frame type
+  // Định nghĩa kích thước ảnh
   const singleImgWidth = 1294;
   const singleImgHeight = 974;
-  const stripImgWidth = 863;
-  const stripImgHeight = 649;
-  const twoByThreeImgWidth = 863; // Same as strip for ratio
-  const twoByThreeImgHeight = 649; // Same as strip for ratio
-
-  let currentImageWidth, currentImageHeight;
-  if (activeFrameType.value === 'single') {
-      currentImageWidth = singleImgWidth;
-      currentImageHeight = singleImgHeight;
-  } else if (activeFrameType.value === 'strip') {
-      currentImageWidth = stripImgWidth;
-      currentImageHeight = stripImgHeight;
-  } else { // 2x3
-      currentImageWidth = twoByThreeImgWidth;
-      currentImageHeight = twoByThreeImgHeight;
-  }
-
+  const stripImgWidth = 863; // Chiều rộng dùng chung cho ảnh dải và ảnh lưới
+  const stripImgHeight = 649; // Chiều cao dùng chung cho ảnh dải và ảnh lưới
 
   const PADDING = 50;
-  const BOTTOM_MARGIN = 150; // Space for logo and text
+  const BOTTOM_MARGIN = 150;
 
-  context.setTransform(1, 0, 0, 1, 0, 0); // Reset canvas transformation
+  context.setTransform(1, 0, 0, 1, 0, 0); // Thiết lập lại biến đổi canvas
 
   if (activeFrameType.value === 'single') {
     const firstImage = new Image();
     firstImage.src = photosInStrip.value[0];
     await new Promise(resolve => firstImage.onload = resolve);
     
-    canvas.width = currentImageWidth + PADDING * 2;
-    canvas.height = currentImageHeight + PADDING * 2 + BOTTOM_MARGIN;
+    canvas.width = singleImgWidth + PADDING * 2;
+    canvas.height = singleImgHeight + PADDING * 2 + BOTTOM_MARGIN;
     context.fillStyle = backgroundColor;
     context.fillRect(0, 0, canvas.width, canvas.height);
-    context.drawImage(firstImage, PADDING, PADDING, currentImageWidth, currentImageHeight);
+    context.drawImage(firstImage, PADDING, PADDING, singleImgWidth, singleImgHeight);
 
-  } else if (activeFrameType.value === 'strip') { // activeFrameType.value === 'strip'
-    const BORDER_WIDTH = 50; // Space between photos in the strip
-    canvas.width = currentImageWidth + PADDING * 2;
-    canvas.height = (currentImageHeight * 4) + PADDING * 2 + (BORDER_WIDTH * 3) + BOTTOM_MARGIN;
+  } else if (activeFrameType.value === 'strip') {
+    const BORDER_WIDTH = 50;
+    canvas.width = stripImgWidth + PADDING * 2;
+    canvas.height = (stripImgHeight * 4) + PADDING * 2 + (BORDER_WIDTH * 3) + BOTTOM_MARGIN;
     
     context.fillStyle = backgroundColor;
     context.fillRect(0, 0, canvas.width, canvas.height);
@@ -176,34 +153,34 @@ const generateFinalImage = async (backgroundColor) => {
       const img = new Image();
       img.src = photosInStrip.value[i];
       await new Promise(r => img.onload = r);
-      const yPos = PADDING + (i * currentImageHeight) + (i * BORDER_WIDTH);
-      context.drawImage(img, PADDING, yPos, currentImageWidth, currentImageHeight);
+      const yPos = PADDING + (i * stripImgHeight) + (i * BORDER_WIDTH);
+      context.drawImage(img, PADDING, yPos, stripImgWidth, stripImgHeight);
     }
-  } else { // '2x3' frame
-      const BORDER_WIDTH = 40; // A bit smaller border for 2x3
-      canvas.width = (currentImageWidth * 2) + PADDING * 2 + BORDER_WIDTH;
-      canvas.height = (currentImageHeight * 3) + PADDING * 2 + (BORDER_WIDTH * 2) + BOTTOM_MARGIN;
+  } else if (activeFrameType.value === 'grid_2x3') { // MỚI: Logic cho khung lưới 2x3
+    const BORDER_WIDTH = PADDING;
+    canvas.width = (stripImgWidth * 2) + (BORDER_WIDTH * 3);
+    canvas.height = (stripImgHeight * 3) + (BORDER_WIDTH * 4) + BOTTOM_MARGIN;
 
-      context.fillStyle = backgroundColor;
-      context.fillRect(0, 0, canvas.width, canvas.height);
+    context.fillStyle = backgroundColor;
+    context.fillRect(0, 0, canvas.width, canvas.height);
 
-      for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 6; i++) {
         if (!photosInStrip.value[i]) continue;
         const img = new Image();
         img.src = photosInStrip.value[i];
         await new Promise(r => img.onload = r);
 
-        const col = i % 2;
-        const row = Math.floor(i / 2);
+        const col = i % 2; // Chỉ số cột: 0 hoặc 1
+        const row = Math.floor(i / 2); // Chỉ số hàng: 0, 1, hoặc 2
 
-        const xPos = PADDING + col * (currentImageWidth + BORDER_WIDTH);
-        const yPos = PADDING + row * (currentImageHeight + BORDER_WIDTH);
-
-        context.drawImage(img, xPos, yPos, currentImageWidth, currentImageHeight);
-      }
+        const xPos = (col * stripImgWidth) + ((col + 1) * BORDER_WIDTH);
+        const yPos = (row * stripImgHeight) + ((row + 1) * BORDER_WIDTH);
+        
+        context.drawImage(img, xPos, yPos, stripImgWidth, stripImgHeight);
+    }
   }
   
-  // Add logo and text at the bottom
+  // Thêm logo và văn bản ở dưới cùng (dùng chung cho mọi loại khung)
   const logo = new Image();
   logo.src = mascotBearLogo;
   await new Promise(r => logo.onload = r);
@@ -213,8 +190,8 @@ const generateFinalImage = async (backgroundColor) => {
   const logoWidth = logoHeight * logoAspectRatio;
   
   const webName = 'DEMO STUDIO';
-  const textHeight = 25; // Adjusted text height for better spacing
-  const spaceBetweenLogoAndText = 5; // Reduced space between logo and text
+  const textHeight = 25;
+  const spaceBetweenLogoAndText = 5;
 
   const totalContentHeight = logoHeight + spaceBetweenLogoAndText + textHeight;
   const contentYStart = canvas.height - BOTTOM_MARGIN + (BOTTOM_MARGIN - totalContentHeight) / 2;
@@ -224,8 +201,7 @@ const generateFinalImage = async (backgroundColor) => {
   
   context.drawImage(logo, logoX, logoY, logoWidth, logoHeight);
 
-  // Ensure 'Poppins' font is loaded or provide a fallback
-  context.font = 'bold 25px Poppins, sans-serif'; // Adjusted font size slightly
+  context.font = 'bold 25px Poppins, sans-serif';
   context.fillStyle = '#0369a1';
   context.textAlign = 'center';
   context.textBaseline = 'top';
@@ -237,7 +213,7 @@ const generateFinalImage = async (backgroundColor) => {
   stopCamera();
   uploadToImgBB();
 
-  // --- Start download countdown ---
+  // --- Bắt đầu đếm ngược tải xuống ---
   isDownloadReady.value = false;
   downloadCountdown.value = 5;
   if(downloadTimer) clearInterval(downloadTimer);
@@ -251,7 +227,6 @@ const generateFinalImage = async (backgroundColor) => {
 };
 
 watch(frameColor, (newColor) => {
-  // Regenerate the final image when frame color changes, if a photo has been taken
   if (isPhotoTaken.value) {
     generateFinalImage(newColor);
   }
@@ -271,8 +246,6 @@ const resetState = () => {
   isUploading.value = false;
   uploadedImageUrl.value = null;
   if (captureLoopTimeout) clearTimeout(captureLoopTimeout);
-  
-  // Reset download state
   if (downloadTimer) clearInterval(downloadTimer);
   isDownloadReady.value = false;
   downloadCountdown.value = 5;
@@ -283,7 +256,7 @@ const startCamera = async () => {
   try {
     stream = await navigator.mediaDevices.getUserMedia({
       video: {
-        width: { ideal: 1920 }, // Request high resolution for the raw video feed
+        width: { ideal: 1920 },
         facingMode: 'user'
       },
       audio: false
@@ -304,11 +277,10 @@ const stopCamera = () => {
 
 const selectFrame = (type) => {
   activeFrameType.value = type;
-  // If camera is on, reset and restart to apply new frame type settings
   if (isCameraOn.value) retakePhoto();
 };
 
-// --- FUNCTION TO CAPTURE FRAME (UPDATED DIMENSIONS) ---
+// --- HÀM CHỤP KHUNG HÌNH (KÍCH THƯỚC ĐÃ CẬP NHẬT) ---
 const captureFrame = () => {
   if (!videoRef.value || !canvasRef.value) return null;
 
@@ -316,26 +288,14 @@ const captureFrame = () => {
   const canvas = canvasRef.value;
   const context = canvas.getContext('2d');
 
-  // Determine target dimensions for the captured frame based on active frame type
   const targetWidthSingle = 1294;
   const targetHeightSingle = 974;
-  const targetWidthStrip = 863; 
-  const targetHeightStrip = 649; 
-  const targetWidth2x3 = 863; // Same as strip
-  const targetHeight2x3 = 649; // Same as strip
+  const targetWidthStrip = 863;
+  const targetHeightStrip = 649;
 
-  let currentCaptureWidth, currentCaptureHeight;
-  if (activeFrameType.value === 'single') {
-      currentCaptureWidth = targetWidthSingle;
-      currentCaptureHeight = targetHeightSingle;
-  } else if (activeFrameType.value === 'strip') {
-      currentCaptureWidth = targetWidthStrip;
-      currentCaptureHeight = targetHeightStrip;
-  } else { // 2x3
-      currentCaptureWidth = targetWidth2x3;
-      currentCaptureHeight = targetHeight2x3;
-  }
-
+  // Sử dụng kích thước của ảnh dải cho cả khung dải và khung lưới
+  const currentCaptureWidth = activeFrameType.value === 'single' ? targetWidthSingle : targetWidthStrip;
+  const currentCaptureHeight = activeFrameType.value === 'single' ? targetHeightSingle : targetHeightStrip;
 
   const videoWidth = video.videoWidth;
   const videoHeight = video.videoHeight;
@@ -348,96 +308,84 @@ const captureFrame = () => {
 
   let sx = 0, sy = 0, sWidth = videoWidth, sHeight = videoHeight;
 
-  // Calculate the source rectangle (sx, sy, sWidth, sHeight) from the video
-  // to fit the target aspect ratio while covering the target area.
   if (videoAspectRatio > targetAspectRatio) {
-    // Video is wider than target aspect ratio, so crop video horizontally
     sWidth = videoHeight * targetAspectRatio;
     sx = (videoWidth - sWidth) / 2;
   } else {
-    // Video is taller than target aspect ratio, so crop video vertically
     sHeight = videoWidth / targetAspectRatio;
     sy = (videoHeight - sHeight) / 2;
   }
   
-  context.setTransform(1, 0, 0, 1, 0, 0); // Reset transform
-
-  // Apply filter directly to canvas context
+  context.setTransform(1, 0, 0, 1, 0, 0);
   context.filter = filterCssMap[activeFilter.value] || 'none';
-  
-  // Flip image horizontally for mirror effect
   context.translate(canvas.width, 0);
   context.scale(-1, 1);
-  
-  // Draw the cropped video frame onto the canvas
   context.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, currentCaptureWidth, currentCaptureHeight);
-
-  // Reset filter to avoid affecting subsequent draws (if any)
   context.filter = 'none';
 
   return canvas.toDataURL('image/png');
 };
 
 
+// --- HÀM ĐÃ TÁI CẤU TRÚC ĐỂ XỬ LÝ MỌI CHU KỲ CHỤP ---
 const runCaptureCycle = () => {
-  // Prevent multiple capture cycles from running simultaneously or if already completed
-  const totalPhotos = activeFrameType.value === 'strip' ? 4 : (activeFrameType.value === '2x3' ? 6 : 1);
-  if (isCapturing.value || !isCameraOn.value || (activeFrameType.value !== 'single' && stripCaptureStep.value >= totalPhotos)) return;
+    const isMultiFrame = activeFrameType.value === 'strip' || activeFrameType.value === 'grid_2x3';
+    const maxPhotos = activeFrameType.value === 'strip' ? 4 : (activeFrameType.value === 'grid_2x3' ? 6 : 1);
 
-  isCapturing.value = true;
-  countdown.value = selectedCaptureTime.value;
+    if (isCapturing.value || !isCameraOn.value || (isMultiFrame && stripCaptureStep.value >= maxPhotos)) return;
 
-  const countdownTimer = setInterval(() => {
-    countdown.value--;
-    if (countdown.value <= 0) {
-      clearInterval(countdownTimer);
-      
-      const capturedPhoto = captureFrame();
-      if (!capturedPhoto) {
-        isCapturing.value = false;
-        return;
-      }
-      
-      photosInStrip.value.push(capturedPhoto);
+    isCapturing.value = true;
+    countdown.value = selectedCaptureTime.value;
 
-      if (activeFrameType.value === 'single') {
-        generateFinalImage(frameColor.value);
-        isCapturing.value = false;
-      } else { // Strip or 2x3 frame type
-        stripCaptureStep.value++;
-        
-        if (stripCaptureStep.value >= totalPhotos) {
-          generateFinalImage(frameColor.value);
-          isCapturing.value = false;
-          isContinuousShooting.value = false; // Stop continuous shooting after completion
-        } else {
-          isCapturing.value = false;
-          if (isContinuousShooting.value) {
-            // If continuous shooting is active, start the next capture after 1 second
-            captureLoopTimeout = setTimeout(runCaptureCycle, 1000);
-          }
+    const countdownTimer = setInterval(() => {
+        countdown.value--;
+        if (countdown.value <= 0) {
+            clearInterval(countdownTimer);
+            
+            const capturedPhoto = captureFrame();
+            if (!capturedPhoto) {
+                isCapturing.value = false;
+                return;
+            }
+            
+            photosInStrip.value.push(capturedPhoto);
+
+            if (!isMultiFrame) { // Logic cho ảnh đơn
+                generateFinalImage(frameColor.value);
+                isCapturing.value = false;
+            } else { // Logic cho khung ảnh dải hoặc lưới
+                stripCaptureStep.value++;
+                
+                if (stripCaptureStep.value >= maxPhotos) {
+                    generateFinalImage(frameColor.value);
+                    isCapturing.value = false;
+                    isContinuousShooting.value = false; // Dừng chụp liên tục sau khi hoàn thành
+                } else {
+                    isCapturing.value = false;
+                    if (isContinuousShooting.value) {
+                        captureLoopTimeout = setTimeout(runCaptureCycle, 1000);
+                    }
+                }
+            }
         }
-      }
-    }
-  }, 1000); // Countdown every second
+    }, 1000);
 };
 
 
 const handlePrimaryCapture = () => {
-  if (isCapturing.value) return; // Prevent double-clicking
-  isContinuousShooting.value = false; // Ensure continuous shooting is off for single capture
-  if (captureLoopTimeout) clearTimeout(captureLoopTimeout); // Clear any pending continuous capture
+  if (isCapturing.value) return;
+  isContinuousShooting.value = false;
+  if (captureLoopTimeout) clearTimeout(captureLoopTimeout);
   runCaptureCycle();
 };
 
 const toggleContinuousShooting = () => {
-  // If currently capturing and not in continuous mode, prevent toggling
   if (isCapturing.value && !isContinuousShooting.value) return; 
   isContinuousShooting.value = !isContinuousShooting.value;
   if (isContinuousShooting.value) {
-    runCaptureCycle(); // Start continuous capture
+    runCaptureCycle();
   } else {
-    if (captureLoopTimeout) clearTimeout(captureLoopTimeout); // Stop continuous capture
+    if (captureLoopTimeout) clearTimeout(captureLoopTimeout);
   }
 };
 
@@ -451,22 +399,21 @@ const applyFilter = (filterClass) => {
   activeFilter.value = filterClass;
 };
 
+// --- COMPUTED PROPERTY ĐÃ CẬP NHẬT CHO VĂN BẢN NÚT ---
 const captureButtonText = computed(() => {
     if (isCameraOn.value && !isPhotoTaken.value) {
-        if (activeFrameType.value === 'strip') {
-            if (stripCaptureStep.value < 4) {
-                return `Chụp ảnh (${stripCaptureStep.value + 1}/4)`;
+        if (activeFrameType.value === 'strip' || activeFrameType.value === 'grid_2x3') {
+            const maxPhotos = activeFrameType.value === 'strip' ? 4 : 6;
+            if (stripCaptureStep.value < maxPhotos) {
+                return `Chụp ảnh (${stripCaptureStep.value + 1}/${maxPhotos})`;
             }
-        } else if (activeFrameType.value === '2x3') {
-            if (stripCaptureStep.value < 6) {
-                return `Chụp ảnh (${stripCaptureStep.value + 1}/6)`;
-            }
+            return 'Hoàn tất';
         }
     }
     return 'Chụp ảnh';
 });
 
-// Cleanup on component unmount
+// Dọn dẹp khi component bị hủy
 onUnmounted(() => {
   stopCamera();
   if (captureLoopTimeout) clearTimeout(captureLoopTimeout);
@@ -481,7 +428,7 @@ onUnmounted(() => {
       <div class="w-full md:w-1/4 flex flex-col">
         <div class="bg-white p-4 rounded-xl shadow-md">
           <h3 class="text-lg font-semibold text-sky-800 mb-3 text-center md:text-left">Chọn loại khung</h3>
-          <div class="flex flex-wrap md:flex-col gap-4 justify-center">
+          <div class="flex md:flex-col gap-4 justify-center">
             
             <div @click="selectFrame('single')" class="cursor-pointer group">
               <div 
@@ -510,21 +457,22 @@ onUnmounted(() => {
               </div>
               <p class="text-center mt-2 text-sm font-medium" :class="[activeFrameType === 'strip' ? 'text-sky-600' : 'text-gray-600 group-hover:text-sky-500']">Dải 4 ảnh</p>
             </div>
-            
-            <div @click="selectFrame('2x3')" class="cursor-pointer group">
-              <div
+
+            <div @click="selectFrame('grid_2x3')" class="cursor-pointer group">
+              <div 
                 class="bg-white p-2 rounded-lg shadow-md border-2 transition-all"
-                :class="[activeFrameType === '2x3' ? 'border-sky-500 ring-2 ring-sky-300' : 'border-gray-200']"
+                :class="[activeFrameType === 'grid_2x3' ? 'border-sky-500 ring-2 ring-sky-300' : 'border-gray-200']"
               >
                 <div class="w-24 h-36 bg-gray-200 rounded-sm mx-auto grid grid-cols-2 grid-rows-3 gap-1 p-1">
-                    <div v-for="i in 6" :key="i" class="bg-gray-300 rounded-sm flex items-center justify-center overflow-hidden" :class="{'ring-2 ring-pink-500 ring-inset': activeFrameType === '2x3' && stripCaptureStep === i - 1 && isCameraOn}">
+                    <div v-for="i in 6" :key="i" class="bg-gray-300" :class="{'ring-2 ring-pink-500 ring-inset': activeFrameType === 'grid_2x3' && stripCaptureStep === i - 1 && isCameraOn}">
                         <img v-if="photosInStrip[i-1]" :src="photosInStrip[i-1]" class="w-full h-full object-cover">
-                        <svg v-else class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        <svg v-else class="w-full h-full text-gray-400 p-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                     </div>
                 </div>
               </div>
-              <p class="text-center mt-2 text-sm font-medium" :class="[activeFrameType === '2x3' ? 'text-sky-600' : 'text-gray-600 group-hover:text-sky-500']">Ảnh 2x3</p>
+              <p class="text-center mt-2 text-sm font-medium" :class="[activeFrameType === 'grid_2x3' ? 'text-sky-600' : 'text-gray-600 group-hover:text-sky-500']">Lưới 2x3 (6 ảnh)</p>
             </div>
+
           </div>
         </div>
 
@@ -582,7 +530,7 @@ onUnmounted(() => {
                       <span>{{ captureButtonText }}</span>
                     </button>
 
-                    <button v-if="activeFrameType === 'strip' || activeFrameType === '2x3'" @click="toggleContinuousShooting" class="w-full sm:w-auto px-6 py-3 font-semibold rounded-full transition-all duration-300 shadow-md transform hover:scale-105" :class="[isContinuousShooting ? 'bg-purple-600 text-white animate-pulse' : 'bg-gray-200 text-gray-800 hover:bg-gray-300']" :disabled="isCapturing && !isContinuousShooting">
+                    <button v-if="activeFrameType === 'strip' || activeFrameType === 'grid_2x3'" @click="toggleContinuousShooting" class="w-full sm:w-auto px-6 py-3 font-semibold rounded-full transition-all duration-300 shadow-md transform hover:scale-105" :class="[isContinuousShooting ? 'bg-purple-600 text-white animate-pulse' : 'bg-gray-200 text-gray-800 hover:bg-gray-300']" :disabled="isCapturing && !isContinuousShooting">
                       {{ isContinuousShooting ? 'Dừng chụp' : 'Chụp liên tục' }}
                     </button>
                 </template>
@@ -625,12 +573,12 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-/* Video element is flipped horizontally to act like a mirror */
+/* Lật ngang thẻ video để tạo hiệu ứng gương */
 video {
   transform: scaleX(-1);
 }
 
-/* Filter styles */
+/* Các style cho bộ lọc */
 .filter-none { filter: none; }
 .filter-grayscale { filter: grayscale(100%); }
 .filter-sepia { filter: sepia(100%); }
@@ -638,7 +586,7 @@ video {
 .filter-vintage { filter: sepia(65%) contrast(110%) brightness(90%) saturate(130%); }
 .filter-summer { filter: contrast(110%) brightness(110%) saturate(150%) hue-rotate(-10deg); }
 
-/* Custom scrollbar for filter preview */
+/* Tùy chỉnh thanh cuộn cho khu vực xem trước bộ lọc */
 .overflow-x-auto::-webkit-scrollbar { 
   height: 6px; 
 }
@@ -650,7 +598,7 @@ video {
   border-radius: 10px; 
 }
 
-/* Fade transition for elements (if used, not explicitly in template but good to keep) */
+/* Hiệu ứng chuyển cảnh mờ dần cho các phần tử */
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.5s ease;
@@ -660,7 +608,7 @@ video {
   opacity: 0;
 }
 
-/* Styling for color input type */
+/* Định dạng cho input loại color */
 input[type="color"] {
   -webkit-appearance: none;
   -moz-appearance: none;
