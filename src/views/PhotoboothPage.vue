@@ -29,6 +29,8 @@ const availableFrames = ref({
   ],
   strip: [
     '/frames/strip/pinkstrip.png',
+    '/frames/strip/cutestrip.png',
+    '/frames/strip/hellokittystrip.png',
   ],
   grid_2x3: [
   ]
