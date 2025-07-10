@@ -23,12 +23,11 @@ const countdown = ref(0);
 const selectedOverlayFrame = ref(null);
 const availableFrames = ref({
   single: [
-    '/frames/single/pinksingle.png',
+    '/frames/single/pinkv2single.png',
     '/frames/single/cutesingle.png',
     '/frames/single/hellokitty.png',
   ],
   strip: [
-    '/frames/strip/pinkstrip.png',
     '/frames/strip/cutestrip.png',
     '/frames/strip/hellokittystrip.png',
   ],
