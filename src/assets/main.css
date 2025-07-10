@@ -56,7 +56,7 @@ body {
     opacity: 0.5; /* Bắt đầu tan chậm */
   }
   100% {
-    transform: translateY(-200vh) translateX(0); /* Bay cao hơn */
+    transform: translateY(-170vh) translateX(0); /* Bay cao hơn */
     opacity: 0; /* Tan biến hoàn toàn */
   }
 }
