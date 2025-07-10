@@ -26,6 +26,7 @@ const availableFrames = ref({
     '/frames/single/pinkv2single.png',
     '/frames/single/cutesingle.png',
     '/frames/single/hellokitty.png',
+    '/frames/single/3congausingle.png',
   ],
   strip: [
     '/frames/strip/cutestrip.png',
