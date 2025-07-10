@@ -26,36 +26,37 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* --- Hiệu ứng bong bóng (phiên bản ổn định) --- */
+/* --- Hiệu ứng bong bóng (đã cập nhật) --- */
 .bubble {
   position: absolute;
-  bottom: 0;
+  bottom: -150px; /* Bắt đầu từ vị trí thấp hơn để tránh xuất hiện đột ngột */
   border-radius: 50%;
   background: radial-gradient(circle at 30% 30%, rgba(14, 165, 233, 0.25), rgba(14, 165, 233, 0.05));
   border: 2px solid rgba(14, 165, 233, 0.2);
   box-shadow: 0 0 10px rgba(14, 165, 233, 0.2), inset 0 0 5px rgba(14, 165, 233, 0.1);
   
   animation: float-up linear infinite;
-  will-change: transform;
-  transform: translateY(100%);
+  will-change: transform, opacity; /* Tối ưu hóa hiệu năng animation */
 }
 
 @keyframes float-up {
   0% {
-    transform: translateY(100%) translateX(0);
-    opacity: 0.7;
+    transform: translateY(0);
+    opacity: 0; /* Bắt đầu ẩn */
   }
-  25% {
-    transform: translateY(-25vh) translateX(20px);
+  10% {
+    transform: translateY(-10vh) translateX(10px);
+    opacity: 0.7; /* Xuất hiện */
   }
   50% {
-    transform: translateY(-50vh) translateX(-20px);
+    transform: translateY(-60vh) translateX(-20px);
+    opacity: 0.7; /* Vẫn giữ độ mờ */
   }
-  75% {
-    transform: translateY(-75vh) translateX(10px);
+  90% {
+    opacity: 0.5; /* Bắt đầu tan chậm */
   }
   100% {
-    transform: translateY(-110vh) translateX(0);
-    opacity: 0;
+    transform: translateY(-120vh) translateX(0); /* Bay cao hơn */
+    opacity: 0; /* Tan biến hoàn toàn */
   }
 }

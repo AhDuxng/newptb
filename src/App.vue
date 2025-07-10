@@ -23,7 +23,7 @@ import { RouterLink, RouterView } from 'vue-router'
         <div class="hidden md:flex items-center space-x-8">
           <RouterLink to="/photobooth" class="text-gray-700 hover:text-sky-600 transition-colors duration-300 font-medium text-base">Photobooth</RouterLink>
           <a href="https://duxng.io.vn/" target="_blank" rel="noopener noreferrer" class="text-gray-700 hover:text-white hover:bg-sky-500 transition-colors duration-300 font-medium text-base border-2 border-sky-500 px-4 py-2 rounded-full">
-            Liên hệ
+            Liên hệ & góp ý
           </a>
         </div>
         <button class="md:hidden p-2 rounded-md hover:bg-sky-100">
