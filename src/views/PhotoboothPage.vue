@@ -20,7 +20,7 @@ const uploadError = ref(null);
 
 const activeFrameType = ref('single');
 const photosInStrip = ref([]);
-const stripCaptureStep = ref(0);
+const stripCaptureStep = ref(0); // Now indicates the index to capture into
 const isCapturing = ref(false);
 const countdown = ref(0);
 
@@ -93,7 +93,65 @@ const generateStaticStars = () => {
 
 generateStaticStars();
 
+// --- Computed properties ---
+const maxPhotos = computed(() => {
+  if (activeFrameType.value === 'strip') return 4;
+  if (activeFrameType.value === 'grid_2x3') return 6;
+  return 1;
+});
+
+const areAllPhotosTaken = computed(() => {
+    if (activeFrameType.value === 'single') {
+        return photosInStrip.value.length > 0 && photosInStrip.value[0];
+    }
+    return photosInStrip.value.length === maxPhotos.value && photosInStrip.value.every(p => p);
+});
+
+
+const captureButtonText = computed(() => {
+    if (areAllPhotosTaken.value) {
+        return 'Hoàn tất';
+    }
+    if (isCameraOn.value && !isPhotoTaken.value) {
+        if (activeFrameType.value === 'strip' || activeFrameType.value === 'grid_2x3') {
+            return `Chụp ảnh (${stripCaptureStep.value + 1}/${maxPhotos.value})`;
+        }
+    }
+    return 'Chụp ảnh';
+});
+
+
 // --- Methods ---
+
+const updateStripCaptureStep = () => {
+    const nextSlot = photosInStrip.value.findIndex(photo => !photo);
+    stripCaptureStep.value = nextSlot === -1 ? maxPhotos.value : nextSlot;
+};
+
+const deletePhoto = (index) => {
+    if (index >= 0 && index < photosInStrip.value.length) {
+        photosInStrip.value[index] = undefined;
+        updateStripCaptureStep();
+    }
+};
+
+const selectFrame = (type) => {
+  selectedOverlayFrame.value = null;
+  activeFrameType.value = type;
+  
+  // Initialize the photos array with correct length for multi-photo layouts
+  if (type === 'strip' || type === 'grid_2x3') {
+    photosInStrip.value = new Array(maxPhotos.value).fill(undefined);
+  } else {
+    photosInStrip.value = [];
+  }
+  updateStripCaptureStep();
+
+  if (isCameraOn.value) {
+    retakePhoto();
+  }
+};
+
 const uploadToImgBB = async () => {
   if (!photoData.value) return;
   isUploading.value = true;
@@ -122,7 +180,7 @@ const uploadToImgBB = async () => {
 };
 
 const generateFinalImage = async (backgroundColor) => {
-  if (photosInStrip.value.length === 0 || !canvasRef.value) return;
+  if (photosInStrip.value.some(p => !p)) return; // Don't generate if some photos are missing
 
   const canvas = canvasRef.value;
   const context = canvas.getContext('2d');
@@ -258,10 +316,11 @@ const resetState = () => {
   if (downloadTimer) clearInterval(downloadTimer);
   isDownloadReady.value = false;
   downloadCountdown.value = 5;
+  selectFrame('single'); // Reset to default frame
 };
 
 const startCamera = async () => {
-  resetState();
+  // Don't reset state here, keep photos
   try {
     stream = await navigator.mediaDevices.getUserMedia({
       video: { width: { ideal: 1920 }, facingMode: 'user' },
@@ -283,12 +342,12 @@ const stopCamera = () => {
   stream = null;
 };
 
-const selectFrame = (type) => {
-  selectedOverlayFrame.value = null;
-  activeFrameType.value = type;
-  if (isCameraOn.value) {
-    retakePhoto();
-  }
+const retakePhoto = () => {
+  stopCamera();
+  isPhotoTaken.value = false;
+  photoData.value = null;
+  selectFrame(activeFrameType.value); // Re-initialize array
+  startCamera();
 };
 
 const captureFrame = () => {
@@ -336,10 +395,7 @@ const captureFrame = () => {
 };
 
 const runCaptureCycle = () => {
-    const isMultiFrame = activeFrameType.value === 'strip' || activeFrameType.value === 'grid_2x3';
-    const maxPhotos = activeFrameType.value === 'strip' ? 4 : (activeFrameType.value === 'grid_2x3' ? 6 : 1);
-    
-    if (isCapturing.value || !isCameraOn.value || (isMultiFrame && stripCaptureStep.value >= maxPhotos)) return;
+    if (isCapturing.value || !isCameraOn.value || areAllPhotosTaken.value) return;
     
     isCapturing.value = true;
     countdown.value = selectedCaptureTime.value;
@@ -354,23 +410,20 @@ const runCaptureCycle = () => {
                 return;
             }
             
-            photosInStrip.value.push(capturedPhoto);
-            
-            if (!isMultiFrame) {
+            if (activeFrameType.value === 'single') {
+                photosInStrip.value = [capturedPhoto];
                 generateFinalImage(frameColor.value);
-                isCapturing.value = false;
             } else {
-                stripCaptureStep.value++;
-                if (stripCaptureStep.value >= maxPhotos) {
-                    generateFinalImage(frameColor.value);
-                    isCapturing.value = false;
-                    isContinuousShooting.value = false;
-                } else {
-                    isCapturing.value = false;
-                    if (isContinuousShooting.value) {
-                        captureLoopTimeout = setTimeout(runCaptureCycle, 1000);
-                    }
-                }
+                photosInStrip.value[stripCaptureStep.value] = capturedPhoto;
+                updateStripCaptureStep();
+            }
+            
+            isCapturing.value = false;
+            
+            if (areAllPhotosTaken.value) {
+                generateFinalImage(frameColor.value);
+            } else if (isContinuousShooting.value) {
+                captureLoopTimeout = setTimeout(runCaptureCycle, 1000);
             }
         }
     }, 1000);
@@ -384,6 +437,7 @@ const handlePrimaryCapture = () => {
 };
 
 const toggleContinuousShooting = () => {
+  if (activeFrameType.value === 'single' || areAllPhotosTaken.value) return;
   if (isCapturing.value && !isContinuousShooting.value) return; 
   isContinuousShooting.value = !isContinuousShooting.value;
   if (isContinuousShooting.value) {
@@ -393,28 +447,9 @@ const toggleContinuousShooting = () => {
   }
 };
 
-const retakePhoto = () => {
-  stopCamera();
-  resetState();
-  startCamera();
-};
-
 const applyFilter = (filterClass) => {
   activeFilter.value = filterClass;
 };
-
-const captureButtonText = computed(() => {
-    if (isCameraOn.value && !isPhotoTaken.value) {
-        if (activeFrameType.value === 'strip' || activeFrameType.value === 'grid_2x3') {
-            const maxPhotos = activeFrameType.value === 'strip' ? 4 : 6;
-            if (stripCaptureStep.value < maxPhotos) {
-                return `Chụp ảnh (${stripCaptureStep.value + 1}/${maxPhotos})`;
-            }
-            return 'Hoàn tất';
-        }
-    }
-    return 'Chụp ảnh';
-});
 
 onUnmounted(() => {
   stopCamera();
@@ -466,9 +501,12 @@ onUnmounted(() => {
                 :class="[activeFrameType === 'strip' ? 'border-sky-500 ring-2 ring-sky-300' : 'border-gray-200']"
               >
                 <div class="w-24 h-48 flex flex-col mx-auto bg-gray-200">
-                  <div v-for="i in 4" :key="i" class="h-1/4 border-b border-gray-300" :class="{'ring-2 ring-pink-500 ring-inset': activeFrameType === 'strip' && stripCaptureStep === i - 1 && isCameraOn}">
+                  <div v-for="i in 4" :key="i" class="relative h-1/4 border-b border-gray-300" :class="{'ring-2 ring-pink-500 ring-inset': activeFrameType === 'strip' && stripCaptureStep === i - 1 && isCameraOn}">
                     <img v-if="photosInStrip[i-1]" :src="photosInStrip[i-1]" class="w-full h-full object-cover">
                     <svg v-else class="w-full h-full text-gray-400 p-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    <button v-if="photosInStrip[i-1] && !isPhotoTaken" @click.stop="deletePhoto(i-1)" class="delete-photo-btn">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -482,9 +520,12 @@ onUnmounted(() => {
                 :class="[activeFrameType === 'grid_2x3' ? 'border-sky-500 ring-2 ring-sky-300' : 'border-gray-200']"
               >
                 <div class="w-24 h-36 bg-gray-200 rounded-sm mx-auto grid grid-cols-2 grid-rows-3 gap-1 p-1">
-                    <div v-for="i in 6" :key="i" class="bg-gray-300" :class="{'ring-2 ring-pink-500 ring-inset': activeFrameType === 'grid_2x3' && stripCaptureStep === i - 1 && isCameraOn}">
+                    <div v-for="i in 6" :key="i" class="relative bg-gray-300" :class="{'ring-2 ring-pink-500 ring-inset': activeFrameType === 'grid_2x3' && stripCaptureStep === i - 1 && isCameraOn}">
                         <img v-if="photosInStrip[i-1]" :src="photosInStrip[i-1]" class="w-full h-full object-cover">
                         <svg v-else class="w-full h-full text-gray-400 p-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        <button v-if="photosInStrip[i-1] && !isPhotoTaken" @click.stop="deletePhoto(i-1)" class="delete-photo-btn">
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
                     </div>
                 </div>
               </div>
@@ -494,7 +535,7 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div v-if="isCameraOn" class="bg-white p-4 rounded-xl shadow-md mt-6">
+        <div v-if="isCameraOn && !isPhotoTaken" class="bg-white p-4 rounded-xl shadow-md mt-6">
           <h4 class="text-lg font-semibold text-sky-800 mb-2 text-center md:text-left">Thời gian chụp</h4>
           <div class="flex justify-center md:justify-start gap-2">
             <button
@@ -541,18 +582,30 @@ onUnmounted(() => {
           
           <!-- Controls -->
           <div class="flex flex-col justify-center items-center gap-4">
+            <div v-if="isPhotoTaken" class="w-full max-w-md p-4 mb-4 text-center bg-sky-100 border border-sky-200 rounded-lg">
+              <div v-if="isUploading">
+                <p class="font-semibold text-sky-700">Đang tải ảnh lên, vui lòng chờ...</p>
+              </div>
+              <div v-else-if="uploadedImageUrl">
+                <p class="font-semibold text-green-700">Tải lên thành công!</p>
+              </div>
+              <div v-else-if="uploadError">
+                <p class="font-semibold text-red-700">Tải lên thất bại</p>
+                <p class="text-xs text-red-600 mt-1">{{ uploadError }}</p>
+              </div>
+            </div>
 
             <div class="flex flex-wrap justify-center items-center gap-4">
               <template v-if="!isPhotoTaken">
                 <button v-if="!isCameraOn" @click="startCamera" class="w-full sm:w-auto px-8 py-3 bg-sky-500 text-white font-semibold rounded-full hover:bg-sky-600 transition-all duration-300 shadow-md transform hover:scale-105">Bật Camera</button>
                 
                 <template v-else>
-                    <button :disabled="isCapturing" @click="handlePrimaryCapture" class="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 bg-red-500 text-white font-semibold rounded-full hover:bg-red-600 transition-all duration-300 shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed transform hover:scale-105" :class="{'animate-pulse': isCapturing && !isContinuousShooting}">
+                    <button :disabled="isCapturing || areAllPhotosTaken" @click="handlePrimaryCapture" class="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 bg-red-500 text-white font-semibold rounded-full hover:bg-red-600 transition-all duration-300 shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed transform hover:scale-105" :class="{'animate-pulse': isCapturing && !isContinuousShooting}">
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                       <span>{{ captureButtonText }}</span>
                     </button>
 
-                    <button v-if="activeFrameType === 'strip' || activeFrameType === 'grid_2x3'" @click="toggleContinuousShooting" class="w-full sm:w-auto px-6 py-3 font-semibold rounded-full transition-all duration-300 shadow-md transform hover:scale-105" :class="[isContinuousShooting ? 'bg-purple-600 text-white animate-pulse' : 'bg-gray-200 text-gray-800 hover:bg-gray-300']" :disabled="isCapturing && !isContinuousShooting">
+                    <button v-if="activeFrameType !== 'single' && !areAllPhotosTaken" @click="toggleContinuousShooting" class="w-full sm:w-auto px-6 py-3 font-semibold rounded-full transition-all duration-300 shadow-md transform hover:scale-105" :class="[isContinuousShooting ? 'bg-purple-600 text-white animate-pulse' : 'bg-gray-200 text-gray-800 hover:bg-gray-300']" :disabled="isCapturing && !isContinuousShooting">
                       {{ isContinuousShooting ? 'Dừng chụp' : 'Chụp liên tục' }}
                     </button>
                 </template>
@@ -693,5 +746,27 @@ input[type="color"]::-moz-color-swatch {
     box-shadow: 0 0 6px 2px rgba(14, 165, 233, 0.7);
     transform: scale(1);
   }
+}
+
+.delete-photo-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+.delete-photo-btn:hover {
+  opacity: 1;
+  background-color: rgba(239, 68, 68, 1); /* red-500 */
 }
 </style>
