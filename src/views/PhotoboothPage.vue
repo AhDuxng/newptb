@@ -472,10 +472,10 @@ onUnmounted(() => {
       <div v-for="(star, index) in staticStarsLarge" :key="`ss-lg-${index}`" class="static-star star-lg" :style="star.style"></div>
     </div>
     
-    <div class="w-full max-w-5xl flex flex-col md:flex-row gap-8 pt-8 relative z-10">
+    <div class="w-full max-w-7xl flex flex-col md:flex-row gap-8 pt-8 relative z-10">
       
       <!-- Left Panel: Layout Selection -->
-      <div class="w-full md:w-1/4 flex flex-col">
+      <div class="w-full md:w-[280px] md:flex-shrink-0 flex flex-col">
         <div class="bg-white p-4 rounded-xl shadow-md">
           <h3 class="text-lg font-semibold text-sky-800 mb-3 text-center md:text-left">Chọn loại bố cục</h3>
           <div class="flex md:flex-col gap-4 justify-center">
@@ -542,7 +542,7 @@ onUnmounted(() => {
       </div>
 
       <!-- Right Panel: Camera View and Controls -->
-      <div class="w-full md:w-3/4">
+      <div class="w-full md:flex-1">
         <div class="bg-white/60 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-sky-200">
           
           <!-- Final Image Display -->
@@ -563,7 +563,7 @@ onUnmounted(() => {
           <div v-else class="mb-6">
             <div class="flex flex-col md:flex-row gap-4">
                 <!-- Main Video Feed -->
-                <div class="relative w-full md:w-2/3 aspect-video bg-gray-900 rounded-lg overflow-hidden flex items-center justify-center shadow-inner">
+                <div class="relative w-full aspect-video bg-gray-900 rounded-lg overflow-hidden flex items-center justify-center shadow-inner" :class="{'md:w-full': activeFrameType === 'single', 'md:w-2/3': activeFrameType !== 'single'}">
                     <video ref="videoRef" autoplay playsinline muted class="w-full h-full object-cover transition-all duration-300" :class="activeFilter"></video>
                     <div v-if="countdown > 0" class="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-9xl font-bold z-20">{{ countdown }}</div>
                 </div>
