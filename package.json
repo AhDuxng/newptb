@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "cropperjs": "^1.6.2",
     "form-data": "^4.0.3",
     "node-fetch": "^2.7.0",
     "pinia": "^2.1.7",
