@@ -57,27 +57,47 @@ let downloadTimer = null;
 let stream = null;
 let captureLoopTimeout = null;
 
-// --- Falling Stars Effect ---
-const stars = ref([]);
-const NUMBER_OF_STARS = 20; // Dễ dàng thay đổi số lượng sao
+// --- Starry Sky Effect ---
+const fallingStars = ref([]);
+const staticStars = ref([]);
+const NUMBER_OF_FALLING_STARS = 20;
+const NUMBER_OF_STATIC_STARS = 150;
 
-const generateStars = () => {
-  const newStars = [];
-  for (let i = 0; i < NUMBER_OF_STARS; i++) {
+// Generate falling stars
+const generateFallingStars = () => {
+  const newFallingStars = [];
+  for (let i = 0; i < NUMBER_OF_FALLING_STARS; i++) {
     const style = {
-      // Vị trí bắt đầu ngẫu nhiên theo chiều ngang và chiều dọc (phía trên màn hình)
       left: `${Math.random() * 100}%`,
-      top: `${Math.random() * -50 - 10}%`, // Bắt đầu từ các vị trí khác nhau ở phía trên
-      // Tốc độ rơi và thời gian tồn tại của vệt sáng ngẫu nhiên
+      top: `${Math.random() * -50 - 10}%`,
       animationDuration: `${Math.random() * 3 + 2}s`,
-      // Delay ngẫu nhiên để các sao không rơi cùng lúc
       animationDelay: `${Math.random() * 10}s`,
     };
-    newStars.push({ style });
+    newFallingStars.push({ style });
   }
-  stars.value = newStars;
+  fallingStars.value = newFallingStars;
 };
-generateStars();
+
+// Generate static, twinkling stars
+const generateStaticStars = () => {
+  const newStaticStars = [];
+  for (let i = 0; i < NUMBER_OF_STATIC_STARS; i++) {
+    const size = Math.random() * 1.5 + 0.5; // size from 0.5px to 2px
+    const style = {
+      width: `${size}px`,
+      height: `${size}px`,
+      left: `${Math.random() * 100}%`,
+      top: `${Math.random() * 100}%`,
+      animationDelay: `${Math.random() * 8}s`,
+      animationDuration: `${Math.random() * 3 + 3}s`, // twinkle duration
+    };
+    newStaticStars.push({ style });
+  }
+  staticStars.value = newStaticStars;
+};
+
+generateFallingStars();
+generateStaticStars();
 
 // --- Methods ---
 const uploadToImgBB = async () => {
@@ -420,15 +440,20 @@ onUnmounted(() => {
   <div class="relative flex flex-col items-center p-4 md:p-8 bg-sky-900 min-h-screen font-inter overflow-hidden">
     
     <!-- Static Starry Background -->
-    <div class="stars-bg-small"></div>
-    <div class="stars-bg-medium"></div>
-    <div class="stars-bg-large"></div>
+    <div class="static-stars-container pointer-events-none">
+      <div
+        v-for="(star, index) in staticStars"
+        :key="`static-star-${index}`"
+        class="static-star"
+        :style="star.style"
+      ></div>
+    </div>
 
     <!-- Falling Stars Effect -->
     <div class="falling-stars-container pointer-events-none">
       <div 
-        v-for="(star, index) in stars" 
-        :key="`star-${index}`" 
+        v-for="(star, index) in fallingStars" 
+        :key="`falling-star-${index}`" 
         class="star" 
         :style="star.style"
       ></div>
@@ -665,50 +690,34 @@ input[type="color"]::-moz-color-swatch {
 
 /* --- NEW STAR EFFECT STYLES --- */
 
-/* Helper function for random values in CSS */
-@function random_range($min, $max) {
-  @return $min + floor(random() * ($max - $min + 1));
-}
-
-/* Static stars background */
-.stars-bg-small, .stars-bg-medium, .stars-bg-large {
+/* Static Starry Background */
+.static-stars-container {
   position: absolute;
   top: 0;
   left: 0;
-  width: 1px;
-  height: 1px;
-  background: transparent;
-  animation: twinkle linear infinite;
-}
-.stars-bg-small {
-  box-shadow: 0 0 0 0 #fff; /* Placeholder, will be generated */
-  animation-duration: 50s;
-}
-.stars-bg-medium {
-  box-shadow: 0 0 0 0 #fff; /* Placeholder, will be generated */
-  animation-duration: 100s;
-}
-.stars-bg-large {
-  box-shadow: 0 0 0 0 #fff; /* Placeholder, will be generated */
-  animation-duration: 150s;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  z-index: 1; /* Behind the falling stars */
 }
 
-/* Generate stars using a loop - this part needs a preprocessor like SASS/SCSS */
-/* Since we can't use SASS here, this is a conceptual representation. */
-/* The actual implementation would require manually writing out the box-shadows or using JS. */
-/* For simplicity, we will skip the generation here and focus on the falling star. */
-/* A full implementation would look something like this: */
-/*
-  $shadows-small: ();
-  @for $i from 1 through 700 {
-    $shadows-small: append($shadows-small, (random(2000) + px) (random(2000) + px) #FFF, comma);
-  }
-  .stars-bg-small { box-shadow: $shadows-small; }
-*/
+.static-star {
+  position: absolute;
+  background-color: white;
+  border-radius: 50%;
+  box-shadow: 0 0 4px 1px rgba(255, 255, 255, 0.7);
+  animation: twinkle ease-in-out infinite;
+}
 
 @keyframes twinkle {
-  from { transform: translateY(0px); }
-  to { transform: translateY(-2000px); }
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(0.7);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 /* Falling stars container */
