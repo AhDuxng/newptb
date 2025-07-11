@@ -37,7 +37,7 @@ import { RouterLink, RouterView } from 'vue-router'
     </main>
 
     <footer class="relative z-10 px-6 py-8 mt-20 text-center text-gray-600">
-      <p>© 2025 DEMO STUDIO. All Rights Reserved.</p>
+      <p>© 2025 SmileUp!. All Rights Reserved.</p>
     </footer>
   </div>
 </template>

@@ -49,12 +49,12 @@ onMounted(() => {
       <div class="max-w-4xl mx-auto text-center">
         
         <div class="mb-0">
-          <img :src="mascotBear" alt="Mascot DEMO STUDIO" class="w-48 h-auto mx-auto fade-in-up">
+          <img :src="mascotBear" alt="Mascot SmileUp!" class="w-48 h-auto mx-auto fade-in-up">
         </div>
 
         <h2 class="text-4xl md:text-6xl font-bold text-gray-800 mb-6">
           <span class="font-poppins font-black text-sky-600 bg-gradient-to-r from-sky-500 to-sky-600 bg-clip-text text-transparent text-stack-effect">
-            DEMO STUDIO
+            SmileUp!
           </span>
         </h2>
 
@@ -63,7 +63,7 @@ onMounted(() => {
         </h3>
 
         <p class="text-lg text-gray-600 mb-12 max-w-3xl mx-auto fade-in-up" style="animation-delay: 0.4s;">
-          Tại DEMO STUDIO, bạn sẽ trải nghiệm nền tảng photobooth online miễn phí với các mẫu template sáng tạo và frame độc đáo, giúp tạo ra những bức ảnh ấn tượng chỉ trong vài cú nhấp chuột.
+          Tại SmileUp!, bạn sẽ trải nghiệm nền tảng photobooth online miễn phí với các mẫu template sáng tạo và frame độc đáo, giúp tạo ra những bức ảnh ấn tượng chỉ trong vài cú nhấp chuột.
         </p>
 
         <div class="flex justify-center items-center mb-16 fade-in-up" style="animation-delay: 0.6s;">
