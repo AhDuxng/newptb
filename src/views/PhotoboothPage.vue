@@ -487,8 +487,7 @@ onUnmounted(() => {
                 :class="[activeFrameType === 'single' ? 'border-sky-500 ring-2 ring-sky-300' : 'border-gray-200']"
               >
                 <div class="w-24 h-32 bg-gray-300 rounded-sm mx-auto flex items-center justify-center overflow-hidden">
-                  <img v-if="activeFrameType === 'single' && photosInStrip.length > 0" :src="photosInStrip[0]" class="w-full h-full object-cover">
-                  <svg v-else class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                  <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                 </div>
               </div>
               <p class="text-center mt-2 text-sm font-medium" :class="[activeFrameType === 'single' ? 'text-sky-600' : 'text-gray-600 group-hover:text-sky-500']">Ảnh đơn</p>
@@ -501,12 +500,8 @@ onUnmounted(() => {
                 :class="[activeFrameType === 'strip' ? 'border-sky-500 ring-2 ring-sky-300' : 'border-gray-200']"
               >
                 <div class="w-24 h-48 flex flex-col mx-auto bg-gray-200">
-                  <div v-for="i in 4" :key="i" class="relative h-1/4 border-b border-gray-300" :class="{'ring-2 ring-pink-500 ring-inset': activeFrameType === 'strip' && stripCaptureStep === i - 1 && isCameraOn}">
-                    <img v-if="photosInStrip[i-1]" :src="photosInStrip[i-1]" class="w-full h-full object-cover">
-                    <svg v-else class="w-full h-full text-gray-400 p-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                    <button v-if="photosInStrip[i-1] && !isPhotoTaken" @click.stop="deletePhoto(i-1)" class="delete-photo-btn">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
+                  <div v-for="i in 4" :key="i" class="h-1/4 border-b border-gray-300">
+                    <svg class="w-full h-full text-gray-400 p-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                   </div>
                 </div>
               </div>
@@ -520,12 +515,8 @@ onUnmounted(() => {
                 :class="[activeFrameType === 'grid_2x3' ? 'border-sky-500 ring-2 ring-sky-300' : 'border-gray-200']"
               >
                 <div class="w-24 h-36 bg-gray-200 rounded-sm mx-auto grid grid-cols-2 grid-rows-3 gap-1 p-1">
-                    <div v-for="i in 6" :key="i" class="relative bg-gray-300" :class="{'ring-2 ring-pink-500 ring-inset': activeFrameType === 'grid_2x3' && stripCaptureStep === i - 1 && isCameraOn}">
-                        <img v-if="photosInStrip[i-1]" :src="photosInStrip[i-1]" class="w-full h-full object-cover">
-                        <svg v-else class="w-full h-full text-gray-400 p-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                        <button v-if="photosInStrip[i-1] && !isPhotoTaken" @click.stop="deletePhoto(i-1)" class="delete-photo-btn">
-                          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
+                    <div v-for="i in 6" :key="i" class="bg-gray-300">
+                        <svg class="w-full h-full text-gray-400 p-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                     </div>
                 </div>
               </div>
@@ -554,20 +545,46 @@ onUnmounted(() => {
       <div class="w-full md:w-3/4">
         <div class="bg-white/60 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-sky-200">
           
-          <div class="relative w-full aspect-video bg-gray-900 rounded-lg overflow-hidden flex items-center justify-center mb-6 shadow-inner mx-auto">
-            <div v-if="!isCameraOn && !isPhotoTaken" class="h-full flex flex-col items-center justify-center text-center text-white p-4">
+          <!-- Final Image Display -->
+          <div v-if="isPhotoTaken" class="relative w-full aspect-video bg-gray-200 rounded-lg overflow-hidden flex items-center justify-center mb-6 shadow-inner mx-auto">
+             <img :src="photoData" alt="Ảnh đã chụp" class="w-full h-full object-contain bg-transparent">
+          </div>
+
+          <!-- Camera Off Message -->
+          <div v-else-if="!isCameraOn" class="relative w-full aspect-video bg-gray-900 rounded-lg overflow-hidden flex items-center justify-center mb-6 shadow-inner mx-auto">
+            <div class="h-full flex flex-col items-center justify-center text-center text-white p-4">
               <svg class="w-16 h-16 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
               <p class="mt-2 font-medium">Camera đang tắt</p>
               <p class="text-sm text-gray-300">Nhấn "Bật Camera" để bắt đầu</p>
             </div>
-            <video ref="videoRef" v-show="isCameraOn && !isPhotoTaken" autoplay playsinline muted class="w-full h-full object-cover transition-all duration-300" :class="activeFilter"></video>
-            <img v-if="isPhotoTaken" :src="photoData" alt="Ảnh đã chụp" class="w-full h-full object-contain bg-transparent">
-            
-            <div v-if="countdown > 0" class="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-9xl font-bold z-20">{{ countdown }}</div>
-            
-            <canvas ref="canvasRef" class="hidden"></canvas>
           </div>
           
+          <!-- Camera On View -->
+          <div v-else class="mb-6">
+            <div class="flex flex-col md:flex-row gap-4">
+                <!-- Main Video Feed -->
+                <div class="relative w-full md:w-2/3 aspect-video bg-gray-900 rounded-lg overflow-hidden flex items-center justify-center shadow-inner">
+                    <video ref="videoRef" autoplay playsinline muted class="w-full h-full object-cover transition-all duration-300" :class="activeFilter"></video>
+                    <div v-if="countdown > 0" class="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-9xl font-bold z-20">{{ countdown }}</div>
+                </div>
+
+                <!-- Thumbnails Preview for multi-photo layouts -->
+                <div v-if="activeFrameType === 'strip' || activeFrameType === 'grid_2x3'" class="w-full md:w-1/3">
+                    <div class="grid gap-2" :class="activeFrameType === 'strip' ? 'grid-cols-2' : 'grid-cols-2'">
+                        <div v-for="i in maxPhotos" :key="i" class="relative aspect-square bg-gray-200 rounded-md flex items-center justify-center" :class="{'ring-2 ring-pink-500 ring-inset': stripCaptureStep === i - 1}">
+                            <img v-if="photosInStrip[i-1]" :src="photosInStrip[i-1]" class="w-full h-full object-cover rounded-md">
+                            <span v-else class="text-gray-400 font-bold text-2xl">{{ i }}</span>
+                             <button v-if="photosInStrip[i-1]" @click.stop="deletePhoto(i-1)" class="delete-photo-btn">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+          </div>
+          
+          <canvas ref="canvasRef" class="hidden"></canvas>
+
           <!-- Filters -->
           <div v-if="isCameraOn && !isPhotoTaken" class="mb-6">
               <div class="flex space-x-4 overflow-x-auto pb-3 -mx-2 px-2">
@@ -764,6 +781,7 @@ input[type="color"]::-moz-color-swatch {
   cursor: pointer;
   opacity: 0.7;
   transition: opacity 0.2s;
+  z-index: 10;
 }
 .delete-photo-btn:hover {
   opacity: 1;
