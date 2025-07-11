@@ -104,6 +104,7 @@ const areAllPhotosTaken = computed(() => {
     if (activeFrameType.value === 'single') {
         return photosInStrip.value.length > 0 && photosInStrip.value[0];
     }
+    // Check if all slots are filled (not undefined)
     return photosInStrip.value.length === maxPhotos.value && photosInStrip.value.every(p => p);
 });
 
@@ -136,8 +137,9 @@ const deletePhoto = (index) => {
 };
 
 const selectFrame = (type) => {
-  selectedOverlayFrame.value = null;
   activeFrameType.value = type;
+  isPhotoTaken.value = false;
+  photoData.value = null;
   
   // Initialize the photos array with correct length for multi-photo layouts
   if (type === 'strip' || type === 'grid_2x3') {
@@ -146,10 +148,6 @@ const selectFrame = (type) => {
     photosInStrip.value = [];
   }
   updateStripCaptureStep();
-
-  if (isCameraOn.value) {
-    retakePhoto();
-  }
 };
 
 const uploadToImgBB = async () => {
@@ -297,31 +295,11 @@ watch([frameColor, selectedOverlayFrame], () => {
   }
 });
 
-const resetState = () => {
-  errorMessage.value = '';
-  isPhotoTaken.value = false;
-  photoData.value = null;
-  activeFilter.value = 'filter-none';
-  photosInStrip.value = [];
-  stripCaptureStep.value = 0;
-  isCapturing.value = false;
-  countdown.value = 0;
-  isContinuousShooting.value = false;
-  frameColor.value = '#FFFFFF';
-  selectedOverlayFrame.value = null;
-  isUploading.value = false;
-  uploadedImageUrl.value = null;
-  uploadError.value = null;
-  if (captureLoopTimeout) clearTimeout(captureLoopTimeout);
-  if (downloadTimer) clearInterval(downloadTimer);
-  isDownloadReady.value = false;
-  downloadCountdown.value = 5;
-  selectFrame('single'); // Reset to default frame
-};
-
 const startCamera = async () => {
-  // Don't reset state here, keep photos
   try {
+    if (stream) {
+      stopCamera();
+    }
     stream = await navigator.mediaDevices.getUserMedia({
       video: { width: { ideal: 1920 }, facingMode: 'user' },
       audio: false
@@ -346,7 +324,7 @@ const retakePhoto = () => {
   stopCamera();
   isPhotoTaken.value = false;
   photoData.value = null;
-  selectFrame(activeFrameType.value); // Re-initialize array
+  selectFrame(activeFrameType.value); // Re-initialize array for the current layout
   startCamera();
 };
 
@@ -412,11 +390,10 @@ const runCaptureCycle = () => {
             
             if (activeFrameType.value === 'single') {
                 photosInStrip.value = [capturedPhoto];
-                generateFinalImage(frameColor.value);
             } else {
                 photosInStrip.value[stripCaptureStep.value] = capturedPhoto;
-                updateStripCaptureStep();
             }
+            updateStripCaptureStep();
             
             isCapturing.value = false;
             
@@ -450,6 +427,9 @@ const toggleContinuousShooting = () => {
 const applyFilter = (filterClass) => {
   activeFilter.value = filterClass;
 };
+
+// Initialize with a default frame type on component mount
+selectFrame('single');
 
 onUnmounted(() => {
   stopCamera();
