@@ -59,41 +59,57 @@ let captureLoopTimeout = null;
 
 // --- Starry Sky Effect ---
 const fallingStars = ref([]);
-const staticStars = ref([]);
-const NUMBER_OF_FALLING_STARS = 20;
-const NUMBER_OF_STATIC_STARS = 150;
+const staticStarsSmall = ref([]);
+const staticStarsMedium = ref([]);
+const staticStarsLarge = ref([]);
 
-// Generate falling stars
+const NUMBER_OF_FALLING_STARS = 15;
+const NUMBER_OF_STATIC_STARS_SM = 100;
+const NUMBER_OF_STATIC_STARS_MD = 50;
+const NUMBER_OF_STATIC_STARS_LG = 25;
+
+// Generate falling stars with random angles and some "fireballs"
 const generateFallingStars = () => {
   const newFallingStars = [];
   for (let i = 0; i < NUMBER_OF_FALLING_STARS; i++) {
+    const rotation = Math.random() * 20 + 10; // Random angle from 10 to 30 deg
+    const isFireball = Math.random() < 0.1; // 10% chance to be a fireball
+    
     const style = {
       left: `${Math.random() * 100}%`,
       top: `${Math.random() * -50 - 10}%`,
-      animationDuration: `${Math.random() * 3 + 2}s`,
-      animationDelay: `${Math.random() * 10}s`,
+      animationDuration: `${Math.random() * 2 + (isFireball ? 1 : 3)}s`, // Fireballs are faster
+      animationDelay: `${Math.random() * 15}s`,
+      transform: `rotate(${rotation}deg)`,
     };
-    newFallingStars.push({ style });
+    newFallingStars.push({ style, specialClass: isFireball ? 'star-fireball' : '' });
   }
   fallingStars.value = newFallingStars;
 };
 
-// Generate static, twinkling stars
+// Generate static, twinkling stars with parallax effect
 const generateStaticStars = () => {
-  const newStaticStars = [];
-  for (let i = 0; i < NUMBER_OF_STATIC_STARS; i++) {
-    const size = Math.random() * 1.5 + 0.5; // size from 0.5px to 2px
-    const style = {
-      width: `${size}px`,
-      height: `${size}px`,
-      left: `${Math.random() * 100}%`,
-      top: `${Math.random() * 100}%`,
-      animationDelay: `${Math.random() * 8}s`,
-      animationDuration: `${Math.random() * 3 + 3}s`, // twinkle duration
-    };
-    newStaticStars.push({ style });
-  }
-  staticStars.value = newStaticStars;
+  const createStars = (count, sizeMin, sizeMax, durationMin, durationMax) => {
+    const stars = [];
+    for (let i = 0; i < count; i++) {
+      const size = Math.random() * (sizeMax - sizeMin) + sizeMin;
+      stars.push({
+        style: {
+          width: `${size}px`,
+          height: `${size}px`,
+          left: `${Math.random() * 100}%`,
+          top: `${Math.random() * 100}%`,
+          animationDelay: `${Math.random() * 8}s`,
+          animationDuration: `${Math.random() * (durationMax - durationMin) + durationMin}s`,
+        }
+      });
+    }
+    return stars;
+  };
+
+  staticStarsSmall.value = createStars(NUMBER_OF_STATIC_STARS_SM, 0.5, 1, 4, 7);
+  staticStarsMedium.value = createStars(NUMBER_OF_STATIC_STARS_MD, 1, 1.5, 6, 9);
+  staticStarsLarge.value = createStars(NUMBER_OF_STATIC_STARS_LG, 1.5, 2.2, 8, 11);
 };
 
 generateFallingStars();
@@ -107,7 +123,6 @@ const uploadToImgBB = async () => {
   uploadError.value = null;
   try {
     const base64Image = photoData.value.split(',')[1];
-    // LƯU Ý: Endpoint '/api/upload' này cần được cấu hình ở phía server hoặc proxy của bạn.
     const response = await fetch('/api/upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -136,10 +151,8 @@ const generateFinalImage = async (backgroundColor) => {
   const PADDING = 50;
   const BOTTOM_MARGIN = 150;
 
-  // Reset transform before drawing
   context.setTransform(1, 0, 0, 1, 0, 0);
 
-  // Define image dimensions based on frame type
   const singleImgWidth = 1294;
   const singleImgHeight = 974;
   const stripImgWidth = 863;
@@ -194,16 +207,14 @@ const generateFinalImage = async (backgroundColor) => {
     }
   }
   
-  // Draw overlay frame if selected
   if (selectedOverlayFrame.value) {
     const overlayImg = new Image();
-    overlayImg.crossOrigin = "Anonymous"; // Handle potential CORS issues with overlay images
+    overlayImg.crossOrigin = "Anonymous";
     overlayImg.src = selectedOverlayFrame.value;
     await new Promise(r => overlayImg.onload = r);
     context.drawImage(overlayImg, 0, 0, canvas.width, canvas.height);
   }
 
-  // Draw logo and brand name if no overlay is selected
   if (!selectedOverlayFrame.value) {
     const logo = new Image();
     logo.src = mascotBearLogo;
@@ -232,7 +243,6 @@ const generateFinalImage = async (backgroundColor) => {
   stopCamera();
   uploadToImgBB();
 
-  // Start download countdown
   isDownloadReady.value = false;
   downloadCountdown.value = 5;
   if (downloadTimer) clearInterval(downloadTimer);
@@ -341,7 +351,6 @@ const captureFrame = () => {
   context.scale(-1, 1);
   context.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, currentCaptureWidth, currentCaptureHeight);
   
-  // Reset transform and filter
   context.setTransform(1, 0, 0, 1, 0, 0);
   context.filter = 'none';
   
@@ -437,16 +446,13 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="relative flex flex-col items-center p-4 md:p-8 bg-sky-900 min-h-screen font-inter overflow-hidden">
+  <div class="starry-sky-bg relative flex flex-col items-center p-4 md:p-8 min-h-screen font-inter overflow-hidden">
     
     <!-- Static Starry Background -->
     <div class="static-stars-container pointer-events-none">
-      <div
-        v-for="(star, index) in staticStars"
-        :key="`static-star-${index}`"
-        class="static-star"
-        :style="star.style"
-      ></div>
+      <div v-for="(star, index) in staticStarsSmall" :key="`ss-sm-${index}`" class="static-star star-sm" :style="star.style"></div>
+      <div v-for="(star, index) in staticStarsMedium" :key="`ss-md-${index}`" class="static-star star-md" :style="star.style"></div>
+      <div v-for="(star, index) in staticStarsLarge" :key="`ss-lg-${index}`" class="static-star star-lg" :style="star.style"></div>
     </div>
 
     <!-- Falling Stars Effect -->
@@ -455,6 +461,7 @@ onUnmounted(() => {
         v-for="(star, index) in fallingStars" 
         :key="`falling-star-${index}`" 
         class="star" 
+        :class="star.specialClass"
         :style="star.style"
       ></div>
     </div>
@@ -689,6 +696,33 @@ input[type="color"]::-moz-color-swatch {
 }
 
 /* --- NEW STAR EFFECT STYLES --- */
+.starry-sky-bg {
+  background-color: #0c4a6e; /* bg-sky-900 */
+}
+
+.starry-sky-bg::before, .starry-sky-bg::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.15;
+  z-index: 0;
+}
+
+.starry-sky-bg::before {
+  width: 600px;
+  height: 600px;
+  top: 10%;
+  left: -200px;
+  background: radial-gradient(circle, rgba(129, 140, 248, 0.5) 0%, transparent 70%);
+}
+
+.starry-sky-bg::after {
+  width: 400px;
+  height: 400px;
+  top: 60%;
+  right: -150px;
+  background: radial-gradient(circle, rgba(192, 132, 252, 0.4) 0%, transparent 70%);
+}
 
 /* Static Starry Background */
 .static-stars-container {
@@ -705,9 +739,12 @@ input[type="color"]::-moz-color-swatch {
   position: absolute;
   background-color: white;
   border-radius: 50%;
-  box-shadow: 0 0 4px 1px rgba(255, 255, 255, 0.7);
   animation: twinkle ease-in-out infinite;
 }
+.star-sm { opacity: 0.4; }
+.star-md { opacity: 0.6; }
+.star-lg { opacity: 0.8; }
+
 
 @keyframes twinkle {
   0%, 100% {
@@ -729,7 +766,6 @@ input[type="color"]::-moz-color-swatch {
   height: 100%;
   overflow: hidden;
   z-index: 10;
-  transform: rotateZ(20deg); /* Rotate the entire container for a consistent diagonal fall */
 }
 
 .star {
@@ -740,6 +776,12 @@ input[type="color"]::-moz-color-swatch {
   filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.8));
   animation: fall linear infinite, fade-tail linear infinite;
   opacity: 0;
+  transform-origin: top left;
+}
+
+.star.star-fireball {
+  height: 3px;
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 1));
 }
 
 .star::before, .star::after {
@@ -751,6 +793,10 @@ input[type="color"]::-moz-color-swatch {
   background: #fff;
   border-radius: 999px;
   box-shadow: 0 0 5px 2px rgba(255, 255, 255, 0.8);
+}
+
+.star.star-fireball::before, .star.star-fireball::after {
+  box-shadow: 0 0 8px 3px rgba(255, 255, 255, 1);
 }
 
 .star::before {
