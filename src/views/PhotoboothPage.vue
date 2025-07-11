@@ -54,6 +54,28 @@ let downloadTimer = null;
 let stream = null;
 let captureLoopTimeout = null;
 
+// MỚI: Ref cho hiệu ứng sao băng
+const shootingStars = ref([]);
+
+onMounted(() => {
+  // Tạo các ngôi sao băng ngẫu nhiên
+  const numStars = 25;
+  const newStars = [];
+  for (let i = 0; i < numStars; i++) {
+    newStars.push({
+      id: i,
+      style: {
+        top: `${Math.random() * 100}%`,
+        left: `${Math.random() * 100}%`,
+        animationDuration: `${Math.random() * 2 + 1}s`, // Tốc độ rơi từ 1-3 giây
+        animationDelay: `${Math.random() * 10}s`,    // Xuất hiện ngẫu nhiên trong 10 giây
+      }
+    });
+  }
+  shootingStars.value = newStars;
+});
+
+
 const uploadToImgBB = async () => {
   if (!photoData.value) return;
   isUploading.value = true;
@@ -366,10 +388,8 @@ onUnmounted(() => {
 <template>
   <div class="relative flex flex-col items-center p-4 md:p-8 bg-sky-50 min-h-screen font-inter overflow-hidden">
     
-    <div class="wave-container">
-        <div class="wave wave1"></div>
-        <div class="wave wave2"></div>
-        <div class="wave wave3"></div>
+    <div class="shooting-stars-container">
+        <div v-for="star in shootingStars" :key="star.id" class="star" :style="star.style"></div>
     </div>
     
     <div class="w-full max-w-5xl flex flex-col md:flex-row gap-8 pt-8 relative z-10">
@@ -593,39 +613,44 @@ input[type="color"]::-moz-color-swatch {
   border: 2px solid #e2e8f0;
 }
 
-@keyframes wave-animation {
-  0% { transform: translateX(0) scaleY(1); }
-  50% { transform: translateX(-25px) scaleY(1.05); }
-  100% { transform: translateX(0) scaleY(1); }
-}
-
-.wave {
+.shooting-stars-container {
   position: absolute;
-  left: -100px;
-  right: -100px;
-  bottom: 0;
-  background-color: #bae6fd;
-  height: 150px;
-  border-radius: 50% 50% 0 0;
-  transform-origin: bottom;
-  animation: wave-animation 25s ease-in-out infinite;
-  opacity: 0.7;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
 }
 
-.wave.wave2 {
-  background-color: #7dd3fc;
-  height: 120px;
-  bottom: 10px;
-  opacity: 0.5;
-  animation-duration: 20s;
-  animation-direction: reverse;
+.star {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background-color: #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 8px 2px rgba(125, 211, 252, 0.8); /* Màu lấp lánh xanh da trời */
+  animation: shooting-star-animation linear infinite;
 }
 
-.wave.wave3 {
-  background-color: #38bdf8;
-  height: 100px;
-  bottom: 20px;
-  opacity: 0.3;
-  animation-duration: 15s;
+.star::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 150px;
+  height: 1.5px;
+  background: linear-gradient(90deg, #7dd3fc, transparent);
+}
+
+@keyframes shooting-star-animation {
+  0% {
+    transform: translate(200px, -200px) rotate(315deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-1000px, 1000px) rotate(315deg);
+    opacity: 0;
+  }
 }
 </style>
