@@ -78,9 +78,10 @@ const generateFallingStars = () => {
     const style = {
       left: `${Math.random() * 100}%`,
       top: `${Math.random() * -50 - 10}%`,
-      animationDuration: `${Math.random() * 2 + (isFireball ? 1 : 3)}s`, // Fireballs are faster
+      animationDuration: `${Math.random() * 2 + (isFireball ? 1 : 3)}s, ${Math.random() * 2 + 3}s`, // Separate durations for fall and tail
       animationDelay: `${Math.random() * 15}s`,
-      transform: `rotate(${rotation}deg)`,
+      // SỬA LỖI: Dùng biến CSS để truyền góc xoay, tránh bị animation ghi đè
+      '--rotation-deg': `${rotation}deg`,
     };
     newFallingStars.push({ style, specialClass: isFireball ? 'star-fireball' : '' });
   }
@@ -697,7 +698,7 @@ input[type="color"]::-moz-color-swatch {
 
 /* --- NEW STAR EFFECT STYLES --- */
 .starry-sky-bg {
-  background-color: #0c4a6e; /* bg-sky-900 */
+  background-color: #082f49; /* Darker sky */
 }
 
 .starry-sky-bg::before, .starry-sky-bg::after {
@@ -706,6 +707,7 @@ input[type="color"]::-moz-color-swatch {
   border-radius: 50%;
   opacity: 0.15;
   z-index: 0;
+  filter: blur(50px);
 }
 
 .starry-sky-bg::before {
@@ -777,6 +779,8 @@ input[type="color"]::-moz-color-swatch {
   animation: fall linear infinite, fade-tail linear infinite;
   opacity: 0;
   transform-origin: top left;
+  /* Apply rotation from JS variable */
+  transform: rotate(var(--rotation-deg));
 }
 
 .star.star-fireball {
@@ -825,13 +829,18 @@ input[type="color"]::-moz-color-swatch {
     width: 0;
     opacity: 1;
   }
-  25% {
+  30% {
+    width: 200px;
+    opacity: 1;
+  }
+  80% {
     width: 200px;
     opacity: 1;
   }
   100% {
-    width: 200px;
+    width: 0;
     opacity: 0;
   }
 }
 </style>
+ 
