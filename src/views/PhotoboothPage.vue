@@ -1,9 +1,9 @@
 <script setup>
 import { ref, onUnmounted, computed, watch } from 'vue';
-// SỬA LỖI: Đảm bảo đường dẫn import là chính xác.
+// Đảm bảo đường dẫn import là chính xác.
 // Hãy chắc chắn rằng bạn có file 'mascot-bear.png' trong thư mục 'src/assets'.
 import previewImage from '../assets/mascot-bear.png';
-import mascotBearLogo from '../assets/mascot-bear.png'; // Lỗi đánh máy đã được sửa ở đây
+import mascotBearLogo from '../assets/mascot-bear.png';
 import { availableFrames } from '../config/frames.js';
 
 // --- State Management ---
@@ -674,9 +674,11 @@ input[type="color"]::-moz-color-swatch {
   animation: fall linear infinite, tail linear infinite;
 }
 
+/* SỬA LỖI: Animation rơi thẳng từ trên xuống */
 @keyframes fall {
   to {
-    transform: translate3d(-300px, 700px, 0);
+    /* Chỉ di chuyển theo trục Y để rơi thẳng xuống */
+    transform: translateY(100vh);
   }
 }
 
