@@ -656,43 +656,7 @@ input[type="color"]::-moz-color-swatch {
 
 /* --- NEW STAR EFFECT STYLES --- */
 .starry-sky-bg {
-  background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
-}
-
-.starry-sky-bg::before, .starry-sky-bg::after {
-  content: '';
-  position: absolute;
-  border-radius: 50%;
-  opacity: 0.15;
-  z-index: 0;
-  filter: blur(100px);
-  animation: nebula-drift 120s linear infinite alternate;
-}
-
-.starry-sky-bg::before {
-  width: 80vw;
-  height: 80vw;
-  top: 10%;
-  left: -20%;
-  background: radial-gradient(circle, rgba(129, 140, 248, 0.4) 0%, transparent 70%);
-}
-
-.starry-sky-bg::after {
-  width: 60vw;
-  height: 60vw;
-  top: 50%;
-  right: -25%;
-  background: radial-gradient(circle, rgba(192, 132, 252, 0.3) 0%, transparent 70%);
-  animation-delay: -60s;
-}
-
-@keyframes nebula-drift {
-  from {
-    transform: translate(0, 0) rotate(0deg) scale(1);
-  }
-  to {
-    transform: translate(100px, 50px) rotate(20deg) scale(1.2);
-  }
+  background: white;
 }
 
 /* Static Starry Background */
@@ -700,27 +664,14 @@ input[type="color"]::-moz-color-swatch {
   position: absolute;
   top: 0;
   left: 0;
-  width: 200%; /* Make wider to allow for panning */
+  width: 100%;
   height: 100%;
   z-index: 1;
-  animation-name: parallax-pan;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
-}
-
-.parallax-sm { animation-duration: 200s; }
-.parallax-md { animation-duration: 150s; }
-.parallax-lg { animation-duration: 100s; }
-
-
-@keyframes parallax-pan {
-    from { transform: translateX(0); }
-    to { transform: translateX(-50%); }
 }
 
 .static-star {
   position: absolute;
-  background-color: white;
+  background-color: #0ea5e9; /* Sea Blue */
   border-radius: 50%;
   animation-name: twinkle;
   animation-timing-function: ease-in-out;
@@ -734,96 +685,13 @@ input[type="color"]::-moz-color-swatch {
 @keyframes twinkle {
   0%, 100% {
     opacity: 0.2;
-    box-shadow: 0 0 2px 0px rgba(255, 255, 255, 0.5);
+    box-shadow: 0 0 2px 0px rgba(14, 165, 233, 0.5);
     transform: scale(0.8);
   }
   50% {
     opacity: 1;
-    box-shadow: 0 0 6px 2px rgba(255, 255, 255, 0.8);
+    box-shadow: 0 0 6px 2px rgba(14, 165, 233, 0.7);
     transform: scale(1);
-  }
-}
-
-/* Falling stars container */
-.falling-stars-container {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  z-index: 10;
-}
-
-.star {
-  position: absolute;
-  height: 2px; /* Height of the tail */
-  background: linear-gradient(-45deg, rgba(255, 255, 255, 1), transparent);
-  border-radius: 999px;
-  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.8));
-  animation: fall linear infinite, fade-tail linear infinite;
-  opacity: 0;
-  transform-origin: top left;
-  transform: rotate(var(--rotation-deg));
-}
-
-.star.star-fireball {
-  height: 3px;
-  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 1));
-}
-
-.star::before, .star::after {
-  content: '';
-  position: absolute;
-  top: calc(50% - 1px);
-  right: -2px;
-  height: 2px;
-  background: #fff;
-  border-radius: 999px;
-  box-shadow: 0 0 5px 2px rgba(255, 255, 255, 0.8);
-}
-
-.star.star-fireball::before, .star.star-fireball::after {
-  box-shadow: 0 0 8px 3px rgba(255, 255, 255, 1);
-}
-
-.star::before {
-  width: 10px;
-  transform: rotate(45deg);
-}
-
-.star::after {
-  width: 10px;
-  transform: rotate(-45deg);
-}
-
-@keyframes fall {
-  0% {
-    transform: translateY(0vh);
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(120vh);
-    opacity: 1;
-  }
-}
-
-@keyframes fade-tail {
-  0% {
-    width: 0;
-    opacity: 1;
-  }
-  30% {
-    width: 200px;
-    opacity: 1;
-  }
-  80% {
-    width: 200px;
-    opacity: 1;
-  }
-  100% {
-    width: 0;
-    opacity: 0;
   }
 }
 </style>
