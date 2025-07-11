@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onUnmounted, computed, watch } from 'vue';
+import { ref, onUnmounted, computed, watch, nextTick } from 'vue';
 // Đảm bảo đường dẫn import là chính xác.
 // Hãy chắc chắn rằng bạn có file 'mascot-bear.png' trong thư mục 'src/assets'.
 import previewImage from '../assets/mascot-bear.png';
@@ -296,6 +296,9 @@ watch([frameColor, selectedOverlayFrame], () => {
 });
 
 const startCamera = async () => {
+  isCameraOn.value = true;
+  await nextTick(); 
+
   try {
     if (stream) {
       stopCamera();
@@ -304,11 +307,15 @@ const startCamera = async () => {
       video: { width: { ideal: 1920 }, facingMode: 'user' },
       audio: false
     });
-    if (videoRef.value) videoRef.value.srcObject = stream;
-    isCameraOn.value = true;
+    if (videoRef.value) {
+      videoRef.value.srcObject = stream;
+    } else {
+      console.error("Video element not found after nextTick.");
+    }
   } catch (error) {
     console.error("Lỗi Camera:", error);
     errorMessage.value = "Không thể truy cập camera. Vui lòng kiểm tra lại quyền và thiết bị.";
+    isCameraOn.value = false;
   }
 };
 
@@ -321,11 +328,13 @@ const stopCamera = () => {
 };
 
 const retakePhoto = () => {
-  stopCamera();
   isPhotoTaken.value = false;
   photoData.value = null;
-  selectFrame(activeFrameType.value); // Re-initialize array for the current layout
-  startCamera();
+  selectFrame(activeFrameType.value); 
+  
+  if (!isCameraOn.value) {
+    startCamera();
+  }
 };
 
 const captureFrame = () => {
