@@ -66,9 +66,8 @@ const generateStars = () => {
   for (let i = 0; i < NUMBER_OF_STARS; i++) {
     const scale = Math.random() * 0.7 + 0.5; // Kích thước ngẫu nhiên từ 0.5 đến 1.2
     const style = {
-      // Vị trí bắt đầu ngẫu nhiên
+      // Vị trí bắt đầu ngẫu nhiên theo chiều ngang
       left: `${Math.random() * 100}%`,
-      top: `${Math.random() * -100}%`, // Bắt đầu từ các vị trí khác nhau ở phía trên
       // Tốc độ rơi và thời gian tồn tại của vệt sáng ngẫu nhiên
       animationDuration: `${Math.random() * 3 + 2}s, ${Math.random() * 3 + 2}s`,
       // Delay ngẫu nhiên để các sao không rơi cùng lúc
@@ -673,7 +672,8 @@ input[type="color"]::-moz-color-swatch {
 
 .star {
   position: absolute;
-  /* Đuôi sao chéo hơn và tự nhiên hơn */
+  /* SỬA LỖI: Đặt vị trí bắt đầu cố định ngay phía trên màn hình */
+  top: -10px;
   background: linear-gradient(45deg, rgba(255, 255, 255, 0.8), transparent);
   filter: drop-shadow(0 0 8px rgba(213, 236, 255, 0.7));
   border-radius: 999px;
@@ -683,9 +683,7 @@ input[type="color"]::-moz-color-swatch {
 
 /* Animation rơi chéo từ trên xuống */
 @keyframes fall {
-  from {
-    transform: translate3d(0, 0, 0);
-  }
+  /* Bỏ 'from' để animation bắt đầu từ trạng thái hiện tại của element (bao gồm cả scale) */
   to {
     /* Rơi chéo về phía dưới bên trái, tạo cảm giác chân thật hơn */
     transform: translate3d(-150px, 120vh, 0);
