@@ -58,35 +58,13 @@ let stream = null;
 let captureLoopTimeout = null;
 
 // --- Starry Sky Effect ---
-const fallingStars = ref([]);
 const staticStarsSmall = ref([]);
 const staticStarsMedium = ref([]);
 const staticStarsLarge = ref([]);
 
-const NUMBER_OF_FALLING_STARS = 15;
 const NUMBER_OF_STATIC_STARS_SM = 100;
 const NUMBER_OF_STATIC_STARS_MD = 50;
 const NUMBER_OF_STATIC_STARS_LG = 25;
-
-// Generate falling stars with random angles and some "fireballs"
-const generateFallingStars = () => {
-  const newFallingStars = [];
-  for (let i = 0; i < NUMBER_OF_FALLING_STARS; i++) {
-    const rotation = Math.random() * 20 + 10; // Random angle from 10 to 30 deg
-    const isFireball = Math.random() < 0.1; // 10% chance to be a fireball
-    
-    const style = {
-      left: `${Math.random() * 100}%`,
-      top: `${Math.random() * -50 - 10}%`,
-      animationDuration: `${Math.random() * 2 + (isFireball ? 1 : 3)}s, ${Math.random() * 2 + 3}s`, // Separate durations for fall and tail
-      animationDelay: `${Math.random() * 15}s`,
-      // SỬA LỖI: Dùng biến CSS để truyền góc xoay, tránh bị animation ghi đè
-      '--rotation-deg': `${rotation}deg`,
-    };
-    newFallingStars.push({ style, specialClass: isFireball ? 'star-fireball' : '' });
-  }
-  fallingStars.value = newFallingStars;
-};
 
 // Generate static, twinkling stars with parallax effect
 const generateStaticStars = () => {
@@ -113,7 +91,6 @@ const generateStaticStars = () => {
   staticStarsLarge.value = createStars(NUMBER_OF_STATIC_STARS_LG, 1.5, 2.2, 8, 11);
 };
 
-generateFallingStars();
 generateStaticStars();
 
 // --- Methods ---
@@ -450,21 +427,14 @@ onUnmounted(() => {
   <div class="starry-sky-bg relative flex flex-col items-center p-4 md:p-8 min-h-screen font-inter overflow-hidden">
     
     <!-- Static Starry Background -->
-    <div class="static-stars-container pointer-events-none">
+    <div class="static-stars-container parallax-sm pointer-events-none">
       <div v-for="(star, index) in staticStarsSmall" :key="`ss-sm-${index}`" class="static-star star-sm" :style="star.style"></div>
-      <div v-for="(star, index) in staticStarsMedium" :key="`ss-md-${index}`" class="static-star star-md" :style="star.style"></div>
-      <div v-for="(star, index) in staticStarsLarge" :key="`ss-lg-${index}`" class="static-star star-lg" :style="star.style"></div>
     </div>
-
-    <!-- Falling Stars Effect -->
-    <div class="falling-stars-container pointer-events-none">
-      <div 
-        v-for="(star, index) in fallingStars" 
-        :key="`falling-star-${index}`" 
-        class="star" 
-        :class="star.specialClass"
-        :style="star.style"
-      ></div>
+    <div class="static-stars-container parallax-md pointer-events-none">
+      <div v-for="(star, index) in staticStarsMedium" :key="`ss-md-${index}`" class="static-star star-md" :style="star.style"></div>
+    </div>
+    <div class="static-stars-container parallax-lg pointer-events-none">
+      <div v-for="(star, index) in staticStarsLarge" :key="`ss-lg-${index}`" class="static-star star-lg" :style="star.style"></div>
     </div>
     
     <div class="w-full max-w-5xl flex flex-col md:flex-row gap-8 pt-8 relative z-10">
@@ -698,7 +668,7 @@ input[type="color"]::-moz-color-swatch {
 
 /* --- NEW STAR EFFECT STYLES --- */
 .starry-sky-bg {
-  background-color: #082f49; /* Darker sky */
+  background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
 }
 
 .starry-sky-bg::before, .starry-sky-bg::after {
@@ -707,23 +677,34 @@ input[type="color"]::-moz-color-swatch {
   border-radius: 50%;
   opacity: 0.15;
   z-index: 0;
-  filter: blur(50px);
+  filter: blur(100px);
+  animation: nebula-drift 120s linear infinite alternate;
 }
 
 .starry-sky-bg::before {
-  width: 600px;
-  height: 600px;
+  width: 80vw;
+  height: 80vw;
   top: 10%;
-  left: -200px;
-  background: radial-gradient(circle, rgba(129, 140, 248, 0.5) 0%, transparent 70%);
+  left: -20%;
+  background: radial-gradient(circle, rgba(129, 140, 248, 0.4) 0%, transparent 70%);
 }
 
 .starry-sky-bg::after {
-  width: 400px;
-  height: 400px;
-  top: 60%;
-  right: -150px;
-  background: radial-gradient(circle, rgba(192, 132, 252, 0.4) 0%, transparent 70%);
+  width: 60vw;
+  height: 60vw;
+  top: 50%;
+  right: -25%;
+  background: radial-gradient(circle, rgba(192, 132, 252, 0.3) 0%, transparent 70%);
+  animation-delay: -60s;
+}
+
+@keyframes nebula-drift {
+  from {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+  to {
+    transform: translate(100px, 50px) rotate(20deg) scale(1.2);
+  }
 }
 
 /* Static Starry Background */
@@ -731,17 +712,31 @@ input[type="color"]::-moz-color-swatch {
   position: absolute;
   top: 0;
   left: 0;
-  width: 100%;
+  width: 200%; /* Make wider to allow for panning */
   height: 100%;
-  overflow: hidden;
-  z-index: 1; /* Behind the falling stars */
+  z-index: 1;
+  animation-name: parallax-pan;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.parallax-sm { animation-duration: 200s; }
+.parallax-md { animation-duration: 150s; }
+.parallax-lg { animation-duration: 100s; }
+
+
+@keyframes parallax-pan {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
 }
 
 .static-star {
   position: absolute;
   background-color: white;
   border-radius: 50%;
-  animation: twinkle ease-in-out infinite;
+  animation-name: twinkle;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
 }
 .star-sm { opacity: 0.4; }
 .star-md { opacity: 0.6; }
@@ -750,11 +745,13 @@ input[type="color"]::-moz-color-swatch {
 
 @keyframes twinkle {
   0%, 100% {
-    opacity: 0.3;
-    transform: scale(0.7);
+    opacity: 0.2;
+    box-shadow: 0 0 2px 0px rgba(255, 255, 255, 0.5);
+    transform: scale(0.8);
   }
   50% {
     opacity: 1;
+    box-shadow: 0 0 6px 2px rgba(255, 255, 255, 0.8);
     transform: scale(1);
   }
 }
@@ -779,7 +776,6 @@ input[type="color"]::-moz-color-swatch {
   animation: fall linear infinite, fade-tail linear infinite;
   opacity: 0;
   transform-origin: top left;
-  /* Apply rotation from JS variable */
   transform: rotate(var(--rotation-deg));
 }
 
@@ -843,4 +839,3 @@ input[type="color"]::-moz-color-swatch {
   }
 }
 </style>
- 
