@@ -366,7 +366,7 @@ onUnmounted(() => {
 <template>
   <div class="relative flex flex-col items-center p-4 md:p-8 bg-sky-50 min-h-screen font-inter overflow-hidden">
     
-    <div class="absolute bottom-0 left-0 w-full h-1/4 pointer-events-none z-0">
+    <div class="wave-container">
         <div class="wave wave1"></div>
         <div class="wave wave2"></div>
         <div class="wave wave3"></div>
