@@ -5,10 +5,7 @@ import { ref, onUnmounted, computed, watch, nextTick } from 'vue';
 import previewImage from '../assets/mascot-bear.png';
 import mascotBearLogo from '../assets/mascot-bear.png';
 import { availableFrames } from '../config/frames.js';
-// Để sử dụng chức năng cắt ảnh, bạn cần thêm thư viện Cropper.js vào dự án.
-// Hãy thêm các dòng sau vào file index.html của bạn:
-// <link  href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css" rel="stylesheet">
-// <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
+// Giữ lại import này sau khi đã cài đặt qua npm
 import Cropper from 'cropperjs';
 
 // --- State Management ---
@@ -196,7 +193,8 @@ const uploadToImgBB = async () => {
 };
 
 const generateFinalImage = async (backgroundColor) => {
-  if (photosInStrip.value.some(p => !p)) return; // Don't generate if some photos are missing
+  // SỬA LỖI: Sử dụng computed property để kiểm tra, an toàn và rõ ràng hơn
+  if (!areAllPhotosTaken.value) return;
 
   const canvas = canvasRef.value;
   const context = canvas.getContext('2d');
@@ -327,6 +325,10 @@ const startCamera = async () => {
     });
     if (videoRef.value) {
       videoRef.value.srcObject = stream;
+      // SỬA LỖI: Đợi video tải xong metadata để đảm bảo kích thước video là chính xác khi chụp
+      await new Promise(resolve => {
+        videoRef.value.onloadedmetadata = () => resolve();
+      });
     } else {
       console.error("Video element not found after nextTick.");
     }
@@ -374,6 +376,10 @@ const captureFrame = () => {
 
   const videoWidth = video.videoWidth;
   const videoHeight = video.videoHeight;
+  
+  // Tránh lỗi chia cho 0 nếu video chưa sẵn sàng
+  if (videoWidth === 0 || videoHeight === 0) return null;
+  
   const videoAspectRatio = videoWidth / videoHeight;
   const targetAspectRatio = currentCaptureWidth / currentCaptureHeight;
 
@@ -529,7 +535,6 @@ onUnmounted(() => {
 <template>
   <div class="starry-sky-bg relative flex flex-col items-center p-4 md:p-8 min-h-screen font-inter overflow-hidden">
     
-    <!-- Static Starry Background -->
     <div class="static-stars-container parallax-sm pointer-events-none">
       <div v-for="(star, index) in staticStarsSmall" :key="`ss-sm-${index}`" class="static-star star-sm" :style="star.style"></div>
     </div>
@@ -542,13 +547,11 @@ onUnmounted(() => {
     
     <div class="w-full max-w-7xl flex flex-col md:flex-row gap-8 pt-8 relative z-10">
       
-      <!-- Left Panel: Layout Selection -->
       <div class="w-full md:w-[280px] md:flex-shrink-0 flex flex-col">
         <div class="bg-white p-4 rounded-xl shadow-md">
           <h3 class="text-lg font-semibold text-sky-800 mb-3 text-center md:text-left">Chọn loại bố cục</h3>
           <div class="flex md:flex-col gap-4 justify-center">
             
-            <!-- Single Frame -->
             <div @click="selectFrame('single')" class="cursor-pointer group">
               <div 
                 class="bg-white p-2 rounded-lg shadow-md border-2 transition-all"
@@ -561,7 +564,6 @@ onUnmounted(() => {
               <p class="text-center mt-2 text-sm font-medium" :class="[activeFrameType === 'single' ? 'text-sky-600' : 'text-gray-600 group-hover:text-sky-500']">Ảnh đơn</p>
             </div>
             
-            <!-- Strip Frame -->
             <div @click="selectFrame('strip')" class="cursor-pointer group">
               <div 
                 class="bg-white p-2 rounded-lg shadow-md border-2 transition-all overflow-hidden"
@@ -576,7 +578,6 @@ onUnmounted(() => {
               <p class="text-center mt-2 text-sm font-medium" :class="[activeFrameType === 'strip' ? 'text-sky-600' : 'text-gray-600 group-hover:text-sky-500']">Dải 4 ảnh</p>
             </div>
 
-            <!-- Grid Frame -->
             <div @click="selectFrame('grid_2x3')" class="cursor-pointer group">
               <div 
                 class="bg-white p-2 rounded-lg shadow-md border-2 transition-all"
@@ -609,16 +610,13 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- Right Panel: Camera View and Controls -->
       <div class="w-full md:flex-1">
         <div class="bg-white/60 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-sky-200">
           
-          <!-- Final Image Display -->
           <div v-if="isPhotoTaken" class="relative w-full aspect-video bg-gray-200 rounded-lg overflow-hidden flex items-center justify-center mb-6 shadow-inner mx-auto">
              <img :src="photoData" alt="Ảnh đã chụp" class="w-full h-full object-contain bg-transparent">
           </div>
 
-          <!-- Camera Off Message -->
           <div v-else-if="!isCameraOn" class="relative w-full aspect-video bg-gray-900 rounded-lg overflow-hidden flex items-center justify-center mb-6 shadow-inner mx-auto">
             <div class="h-full flex flex-col items-center justify-center text-center text-white p-4">
               <svg class="w-16 h-16 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
@@ -627,18 +625,15 @@ onUnmounted(() => {
             </div>
           </div>
           
-          <!-- Camera On View -->
           <div v-else class="mb-6">
             <div class="flex flex-col md:flex-row gap-4">
-                <!-- Main Video Feed -->
                 <div class="relative w-full aspect-video bg-gray-900 rounded-lg overflow-hidden flex items-center justify-center shadow-inner" :class="{'md:w-full': activeFrameType === 'single', 'md:w-2/3': activeFrameType !== 'single'}">
                     <video ref="videoRef" autoplay playsinline muted class="w-full h-full object-cover transition-all duration-300" :class="activeFilter"></video>
                     <div v-if="countdown > 0" class="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-9xl font-bold z-20">{{ countdown }}</div>
                 </div>
 
-                <!-- Thumbnails Preview for multi-photo layouts -->
                 <div v-if="activeFrameType === 'strip' || activeFrameType === 'grid_2x3'" class="w-full md:w-1/3">
-                    <div class="grid gap-2" :class="activeFrameType === 'strip' ? 'grid-cols-2' : 'grid-cols-2'">
+                    <div class="grid gap-2 grid-cols-2">
                         <div v-for="i in maxPhotos" :key="i" class="relative aspect-square bg-gray-200 rounded-md flex items-center justify-center" :class="{'ring-2 ring-pink-500 ring-inset': stripCaptureStep === i - 1}">
                             <img v-if="photosInStrip[i-1]" :src="photosInStrip[i-1]" class="w-full h-full object-cover rounded-md">
                             <span v-else class="text-gray-400 font-bold text-2xl">{{ i }}</span>
@@ -653,7 +648,6 @@ onUnmounted(() => {
           
           <canvas ref="canvasRef" class="hidden"></canvas>
 
-          <!-- Filters -->
           <div v-if="isCameraOn && !isPhotoTaken" class="mb-6">
               <div class="flex space-x-4 overflow-x-auto pb-3 -mx-2 px-2">
                 <div v-for="filter in filters" :key="filter.class" @click="applyFilter(filter.class)" class="flex-shrink-0 cursor-pointer text-center group">
@@ -665,7 +659,6 @@ onUnmounted(() => {
               </div>
             </div>
           
-          <!-- Controls -->
           <div class="flex flex-col justify-center items-center gap-4">
             <div v-if="isPhotoTaken" class="w-full max-w-md p-4 mb-4 text-center bg-sky-100 border border-sky-200 rounded-lg">
               <div v-if="isUploading">
@@ -747,7 +740,6 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- Cropping Modal -->
     <div v-if="isCropping" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
       <div class="bg-white p-6 rounded-lg shadow-xl max-w-2xl w-full">
         <h3 class="text-xl font-semibold mb-4">Cắt ảnh</h3>
@@ -761,12 +753,14 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- Hidden file input -->
     <input type="file" ref="fileInput" @change="onFileChange" accept="image/*" class="hidden">
   </div>
 </template>
 
 <style scoped>
+/* CẢI TIẾN: Đặt @import lên đầu */
+@import 'https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css';
+
 /* Base styles */
 video {
   transform: scaleX(-1);
@@ -873,8 +867,4 @@ input[type="color"]::-moz-color-swatch {
   opacity: 1;
   background-color: rgba(239, 68, 68, 1); /* red-500 */
 }
-
-/* Add Cropper.js CSS if not globally available */
-@import 'https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css';
-
 </style>
