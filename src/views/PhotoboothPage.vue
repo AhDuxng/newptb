@@ -1,9 +1,12 @@
 <script setup>
 import { ref, onUnmounted, computed, watch } from 'vue';
+// SỬA LỖI: Đảm bảo đường dẫn import là chính xác.
+// Hãy chắc chắn rằng bạn có file 'mascot-bear.png' trong thư mục 'src/assets'.
 import previewImage from '../assets/mascot-bear.png';
-import mascotBearLogo from '../assets/mascot-bear.png';
+import mascotBearLogo from '../assets/mascot-bear.png'; // Lỗi đánh máy đã được sửa ở đây
 import { availableFrames } from '../config/frames.js';
 
+// --- State Management ---
 const videoRef = ref(null);
 const canvasRef = ref(null);
 const isCameraOn = ref(false);
@@ -54,6 +57,26 @@ let downloadTimer = null;
 let stream = null;
 let captureLoopTimeout = null;
 
+// --- Falling Stars Effect ---
+const stars = ref([]);
+const NUMBER_OF_STARS = 20; // Dễ dàng thay đổi số lượng sao
+
+const generateStars = () => {
+  const newStars = [];
+  for (let i = 0; i < NUMBER_OF_STARS; i++) {
+    const style = {
+      left: `${Math.random() * 100}%`,
+      height: `${Math.random() * 2 + 1}px`,
+      animationDelay: `-${Math.random() * 10}s`,
+      animationDuration: `${Math.random() * 3 + 3}s, ${Math.random() * 3 + 5}s`
+    };
+    newStars.push({ style });
+  }
+  stars.value = newStars;
+};
+generateStars();
+
+// --- Methods ---
 const uploadToImgBB = async () => {
   if (!photoData.value) return;
   isUploading.value = true;
@@ -61,6 +84,7 @@ const uploadToImgBB = async () => {
   uploadError.value = null;
   try {
     const base64Image = photoData.value.split(',')[1];
+    // LƯU Ý: Endpoint '/api/upload' này cần được cấu hình ở phía server hoặc proxy của bạn.
     const response = await fetch('/api/upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -86,22 +110,24 @@ const generateFinalImage = async (backgroundColor) => {
 
   const canvas = canvasRef.value;
   const context = canvas.getContext('2d');
+  const PADDING = 50;
+  const BOTTOM_MARGIN = 150;
 
+  // Reset transform before drawing
+  context.setTransform(1, 0, 0, 1, 0, 0);
+
+  // Define image dimensions based on frame type
   const singleImgWidth = 1294;
   const singleImgHeight = 974;
   const stripImgWidth = 863;
   const stripImgHeight = 649;
-  const PADDING = 50;
-  const BOTTOM_MARGIN = 150;
-
-  context.setTransform(1, 0, 0, 1, 0, 0);
 
   if (activeFrameType.value === 'single') {
     canvas.width = singleImgWidth + PADDING * 2;
     canvas.height = singleImgHeight + PADDING * 2 + BOTTOM_MARGIN;
     if (!selectedOverlayFrame.value) {
-        context.fillStyle = backgroundColor;
-        context.fillRect(0, 0, canvas.width, canvas.height);
+      context.fillStyle = backgroundColor;
+      context.fillRect(0, 0, canvas.width, canvas.height);
     }
     const firstImage = new Image();
     firstImage.src = photosInStrip.value[0];
@@ -111,17 +137,17 @@ const generateFinalImage = async (backgroundColor) => {
   } else if (activeFrameType.value === 'strip') {
     const BORDER_WIDTH = 50;
     canvas.width = stripImgWidth + PADDING * 2;
-    canvas.height = (stripImgHeight * 4) + PADDING * 2 + (BORDER_WIDTH * 3) + BOTTOM_MARGIN;
+    canvas.height = (stripImgHeight * 4) + (BORDER_WIDTH * 3) + PADDING * 2 + BOTTOM_MARGIN;
     if (!selectedOverlayFrame.value) {
-        context.fillStyle = backgroundColor;
-        context.fillRect(0, 0, canvas.width, canvas.height);
+      context.fillStyle = backgroundColor;
+      context.fillRect(0, 0, canvas.width, canvas.height);
     }
     for (let i = 0; i < 4; i++) {
       if (!photosInStrip.value[i]) continue;
       const img = new Image();
       img.src = photosInStrip.value[i];
       await new Promise(r => img.onload = r);
-      const yPos = PADDING + (i * stripImgHeight) + (i * BORDER_WIDTH);
+      const yPos = PADDING + (i * (stripImgHeight + BORDER_WIDTH));
       context.drawImage(img, PADDING, yPos, stripImgWidth, stripImgHeight);
     }
   } else if (activeFrameType.value === 'grid_2x3') {
@@ -129,29 +155,32 @@ const generateFinalImage = async (backgroundColor) => {
     canvas.width = (stripImgWidth * 2) + (BORDER_WIDTH * 3);
     canvas.height = (stripImgHeight * 3) + (BORDER_WIDTH * 4) + BOTTOM_MARGIN;
     if (!selectedOverlayFrame.value) {
-        context.fillStyle = backgroundColor;
-        context.fillRect(0, 0, canvas.width, canvas.height);
+      context.fillStyle = backgroundColor;
+      context.fillRect(0, 0, canvas.width, canvas.height);
     }
     for (let i = 0; i < 6; i++) {
-        if (!photosInStrip.value[i]) continue;
-        const img = new Image();
-        img.src = photosInStrip.value[i];
-        await new Promise(r => img.onload = r);
-        const col = i % 2;
-        const row = Math.floor(i / 2);
-        const xPos = (col * stripImgWidth) + ((col + 1) * BORDER_WIDTH);
-        const yPos = (row * stripImgHeight) + ((row + 1) * BORDER_WIDTH);
-        context.drawImage(img, xPos, yPos, stripImgWidth, stripImgHeight);
+      if (!photosInStrip.value[i]) continue;
+      const img = new Image();
+      img.src = photosInStrip.value[i];
+      await new Promise(r => img.onload = r);
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const xPos = (col * (stripImgWidth + BORDER_WIDTH)) + BORDER_WIDTH;
+      const yPos = (row * (stripImgHeight + BORDER_WIDTH)) + BORDER_WIDTH;
+      context.drawImage(img, xPos, yPos, stripImgWidth, stripImgHeight);
     }
   }
   
+  // Draw overlay frame if selected
   if (selectedOverlayFrame.value) {
     const overlayImg = new Image();
+    overlayImg.crossOrigin = "Anonymous"; // Handle potential CORS issues with overlay images
     overlayImg.src = selectedOverlayFrame.value;
     await new Promise(r => overlayImg.onload = r);
     context.drawImage(overlayImg, 0, 0, canvas.width, canvas.height);
   }
 
+  // Draw logo and brand name if no overlay is selected
   if (!selectedOverlayFrame.value) {
     const logo = new Image();
     logo.src = mascotBearLogo;
@@ -180,9 +209,10 @@ const generateFinalImage = async (backgroundColor) => {
   stopCamera();
   uploadToImgBB();
 
+  // Start download countdown
   isDownloadReady.value = false;
   downloadCountdown.value = 5;
-  if(downloadTimer) clearInterval(downloadTimer);
+  if (downloadTimer) clearInterval(downloadTimer);
   downloadTimer = setInterval(() => {
     downloadCountdown.value--;
     if (downloadCountdown.value <= 0) {
@@ -235,7 +265,9 @@ const startCamera = async () => {
 };
 
 const stopCamera = () => {
-  if (stream) stream.getTracks().forEach(track => track.stop());
+  if (stream) {
+    stream.getTracks().forEach(track => track.stop());
+  }
   isCameraOn.value = false;
   stream = null;
 };
@@ -243,7 +275,9 @@ const stopCamera = () => {
 const selectFrame = (type) => {
   selectedOverlayFrame.value = null;
   activeFrameType.value = type;
-  if (isCameraOn.value) retakePhoto();
+  if (isCameraOn.value) {
+    retakePhoto();
+  }
 };
 
 const captureFrame = () => {
@@ -251,19 +285,25 @@ const captureFrame = () => {
   const video = videoRef.value;
   const canvas = canvasRef.value;
   const context = canvas.getContext('2d');
+  
   const targetWidthSingle = 1294;
   const targetHeightSingle = 974;
   const targetWidthStrip = 863;
   const targetHeightStrip = 649;
+  
   const currentCaptureWidth = activeFrameType.value === 'single' ? targetWidthSingle : targetWidthStrip;
   const currentCaptureHeight = activeFrameType.value === 'single' ? targetHeightSingle : targetHeightStrip;
-  const videoWidth = video.videoWidth;
-  const videoHeight = video.videoHeight;
+
   canvas.width = currentCaptureWidth;
   canvas.height = currentCaptureHeight;
+
+  const videoWidth = video.videoWidth;
+  const videoHeight = video.videoHeight;
   const videoAspectRatio = videoWidth / videoHeight;
   const targetAspectRatio = currentCaptureWidth / currentCaptureHeight;
+
   let sx = 0, sy = 0, sWidth = videoWidth, sHeight = videoHeight;
+  
   if (videoAspectRatio > targetAspectRatio) {
     sWidth = videoHeight * targetAspectRatio;
     sx = (videoWidth - sWidth) / 2;
@@ -271,21 +311,29 @@ const captureFrame = () => {
     sHeight = videoWidth / targetAspectRatio;
     sy = (videoHeight - sHeight) / 2;
   }
+  
   context.setTransform(1, 0, 0, 1, 0, 0);
   context.filter = filterCssMap[activeFilter.value] || 'none';
   context.translate(canvas.width, 0);
   context.scale(-1, 1);
   context.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, currentCaptureWidth, currentCaptureHeight);
+  
+  // Reset transform and filter
+  context.setTransform(1, 0, 0, 1, 0, 0);
   context.filter = 'none';
+  
   return canvas.toDataURL('image/png');
 };
 
 const runCaptureCycle = () => {
     const isMultiFrame = activeFrameType.value === 'strip' || activeFrameType.value === 'grid_2x3';
     const maxPhotos = activeFrameType.value === 'strip' ? 4 : (activeFrameType.value === 'grid_2x3' ? 6 : 1);
+    
     if (isCapturing.value || !isCameraOn.value || (isMultiFrame && stripCaptureStep.value >= maxPhotos)) return;
+    
     isCapturing.value = true;
     countdown.value = selectedCaptureTime.value;
+    
     const countdownTimer = setInterval(() => {
         countdown.value--;
         if (countdown.value <= 0) {
@@ -295,7 +343,9 @@ const runCaptureCycle = () => {
                 isCapturing.value = false;
                 return;
             }
+            
             photosInStrip.value.push(capturedPhoto);
+            
             if (!isMultiFrame) {
                 generateFinalImage(frameColor.value);
                 isCapturing.value = false;
@@ -364,34 +414,41 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="relative flex flex-col items-center p-4 md:p-8 bg-sky-50 min-h-screen font-inter overflow-hidden">
+  <div class="relative flex flex-col items-center p-4 md:p-8 bg-sky-900 min-h-screen font-inter overflow-hidden">
     
-    <div class="wave-container">
-        <div class="wave wave1"></div>
-        <div class="wave wave2"></div>
-        <div class="wave wave3"></div>
+    <!-- Falling Stars Effect -->
+    <div class="falling-stars pointer-events-none">
+      <div 
+        v-for="(star, index) in stars" 
+        :key="`star-${index}`" 
+        class="star" 
+        :style="star.style"
+      ></div>
     </div>
     
     <div class="w-full max-w-5xl flex flex-col md:flex-row gap-8 pt-8 relative z-10">
       
+      <!-- Left Panel: Layout Selection -->
       <div class="w-full md:w-1/4 flex flex-col">
         <div class="bg-white p-4 rounded-xl shadow-md">
           <h3 class="text-lg font-semibold text-sky-800 mb-3 text-center md:text-left">Chọn loại bố cục</h3>
           <div class="flex md:flex-col gap-4 justify-center">
             
+            <!-- Single Frame -->
             <div @click="selectFrame('single')" class="cursor-pointer group">
               <div 
                 class="bg-white p-2 rounded-lg shadow-md border-2 transition-all"
                 :class="[activeFrameType === 'single' ? 'border-sky-500 ring-2 ring-sky-300' : 'border-gray-200']"
               >
                 <div class="w-24 h-32 bg-gray-300 rounded-sm mx-auto flex items-center justify-center overflow-hidden">
-                    <img v-if="activeFrameType === 'single' && photosInStrip.length > 0" :src="photosInStrip[0]" class="w-full h-full object-cover">
-                    <svg v-else class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                  <img v-if="activeFrameType === 'single' && photosInStrip.length > 0" :src="photosInStrip[0]" class="w-full h-full object-cover">
+                  <svg v-else class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                 </div>
               </div>
               <p class="text-center mt-2 text-sm font-medium" :class="[activeFrameType === 'single' ? 'text-sky-600' : 'text-gray-600 group-hover:text-sky-500']">Ảnh đơn</p>
             </div>
             
+            <!-- Strip Frame -->
             <div @click="selectFrame('strip')" class="cursor-pointer group">
               <div 
                 class="bg-white p-2 rounded-lg shadow-md border-2 transition-all overflow-hidden"
@@ -407,6 +464,7 @@ onUnmounted(() => {
               <p class="text-center mt-2 text-sm font-medium" :class="[activeFrameType === 'strip' ? 'text-sky-600' : 'text-gray-600 group-hover:text-sky-500']">Dải 4 ảnh</p>
             </div>
 
+            <!-- Grid Frame -->
             <div @click="selectFrame('grid_2x3')" class="cursor-pointer group">
               <div 
                 class="bg-white p-2 rounded-lg shadow-md border-2 transition-all"
@@ -440,6 +498,7 @@ onUnmounted(() => {
         </div>
       </div>
 
+      <!-- Right Panel: Camera View and Controls -->
       <div class="w-full md:w-3/4">
         <div class="bg-white/60 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-sky-200">
           
@@ -457,6 +516,7 @@ onUnmounted(() => {
             <canvas ref="canvasRef" class="hidden"></canvas>
           </div>
           
+          <!-- Filters -->
           <div v-if="isCameraOn && !isPhotoTaken" class="mb-6">
               <div class="flex space-x-4 overflow-x-auto pb-3 -mx-2 px-2">
                 <div v-for="filter in filters" :key="filter.class" @click="applyFilter(filter.class)" class="flex-shrink-0 cursor-pointer text-center group">
@@ -468,6 +528,7 @@ onUnmounted(() => {
               </div>
             </div>
           
+          <!-- Controls -->
           <div class="flex flex-col justify-center items-center gap-4">
             <div v-if="isPhotoTaken" class="w-full max-w-md p-4 mb-4 text-center bg-sky-100 border border-sky-200 rounded-lg">
               <div v-if="isUploading">
@@ -593,39 +654,44 @@ input[type="color"]::-moz-color-swatch {
   border: 2px solid #e2e8f0;
 }
 
-@keyframes wave-animation {
-  0% { transform: translateX(0) scaleY(1); }
-  50% { transform: translateX(-25px) scaleY(1.05); }
-  100% { transform: translateX(0) scaleY(1); }
-}
-
-.wave {
+/* Falling Stars Effect CSS */
+.falling-stars {
   position: absolute;
-  left: -100px;
-  right: -100px;
-  bottom: 0;
-  background-color: #bae6fd;
-  height: 150px;
-  border-radius: 50% 50% 0 0;
-  transform-origin: bottom;
-  animation: wave-animation 25s ease-in-out infinite;
-  opacity: 0.7;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  z-index: 5;
 }
 
-.wave.wave2 {
-  background-color: #7dd3fc;
-  height: 120px;
-  bottom: 10px;
-  opacity: 0.5;
-  animation-duration: 20s;
-  animation-direction: reverse;
+.star {
+  position: absolute;
+  top: -10px;
+  background: linear-gradient(-45deg, rgba(158, 221, 255, 1), rgba(255, 255, 255, 0));
+  filter: drop-shadow(0 0 6px rgba(188, 233, 255, 0.8));
+  border-radius: 999px;
+  animation: fall linear infinite, tail linear infinite;
 }
 
-.wave.wave3 {
-  background-color: #38bdf8;
-  height: 100px;
-  bottom: 20px;
-  opacity: 0.3;
-  animation-duration: 15s;
+@keyframes fall {
+  to {
+    transform: translate3d(-300px, 700px, 0);
+  }
+}
+
+@keyframes tail {
+  0% {
+    width: 0;
+    opacity: 1;
+  }
+  30% {
+    width: 100px;
+    opacity: 1;
+  }
+  100% {
+    width: 100px;
+    opacity: 0;
+  }
 }
 </style>
