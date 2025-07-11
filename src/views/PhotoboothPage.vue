@@ -5,6 +5,11 @@ import { ref, onUnmounted, computed, watch, nextTick } from 'vue';
 import previewImage from '../assets/mascot-bear.png';
 import mascotBearLogo from '../assets/mascot-bear.png';
 import { availableFrames } from '../config/frames.js';
+// Để sử dụng chức năng cắt ảnh, bạn cần thêm thư viện Cropper.js vào dự án.
+// Hãy thêm các dòng sau vào file index.html của bạn:
+// <link  href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css" rel="stylesheet">
+// <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
+import Cropper from 'cropperjs';
 
 // --- State Management ---
 const videoRef = ref(null);
@@ -57,6 +62,14 @@ let downloadTimer = null;
 let stream = null;
 let captureLoopTimeout = null;
 
+// --- Image Cropping State ---
+const fileInput = ref(null);
+const isCropping = ref(false);
+const cropImageRef = ref(null);
+const imageToCrop = ref(null);
+let cropperInstance = null;
+
+
 // --- Starry Sky Effect ---
 const staticStarsSmall = ref([]);
 const staticStarsMedium = ref([]);
@@ -98,6 +111,11 @@ const maxPhotos = computed(() => {
   if (activeFrameType.value === 'strip') return 4;
   if (activeFrameType.value === 'grid_2x3') return 6;
   return 1;
+});
+
+const cropAspectRatio = computed(() => {
+    if (activeFrameType.value === 'single') return 1294 / 974;
+    return 863 / 649;
 });
 
 const areAllPhotosTaken = computed(() => {
@@ -437,6 +455,67 @@ const applyFilter = (filterClass) => {
   activeFilter.value = filterClass;
 };
 
+const triggerFileUpload = () => {
+    fileInput.value.click();
+};
+
+const onFileChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            imageToCrop.value = e.target.result;
+            isCropping.value = true;
+        };
+        reader.readAsDataURL(file);
+    }
+    event.target.value = ''; // Reset input to allow same file selection
+};
+
+watch(isCropping, (newVal) => {
+    if (newVal) {
+        nextTick(() => {
+            if (cropImageRef.value) {
+                cropperInstance = new Cropper(cropImageRef.value, {
+                    aspectRatio: cropAspectRatio.value,
+                    viewMode: 1,
+                    background: false,
+                    autoCropArea: 0.8,
+                });
+            }
+        });
+    } else {
+        if (cropperInstance) {
+            cropperInstance.destroy();
+            cropperInstance = null;
+        }
+    }
+});
+
+const confirmCrop = () => {
+    if (!cropperInstance) return;
+
+    const croppedImageData = cropperInstance.getCroppedCanvas().toDataURL('image/png');
+    
+    if (activeFrameType.value === 'single') {
+        photosInStrip.value = [croppedImageData];
+    } else {
+        photosInStrip.value[stripCaptureStep.value] = croppedImageData;
+    }
+    updateStripCaptureStep();
+    
+    isCropping.value = false;
+
+    if (areAllPhotosTaken.value) {
+        generateFinalImage(frameColor.value);
+    }
+};
+
+const cancelCrop = () => {
+    isCropping.value = false;
+};
+
+
 // Initialize with a default frame type on component mount
 selectFrame('single');
 
@@ -588,10 +667,23 @@ onUnmounted(() => {
           
           <!-- Controls -->
           <div class="flex flex-col justify-center items-center gap-4">
+            <div v-if="isPhotoTaken" class="w-full max-w-md p-4 mb-4 text-center bg-sky-100 border border-sky-200 rounded-lg">
+              <div v-if="isUploading">
+                <p class="font-semibold text-sky-700">Đang tải ảnh lên, vui lòng chờ...</p>
+              </div>
+              <div v-else-if="uploadedImageUrl">
+                <p class="font-semibold text-green-700">Tải lên thành công!</p>
+              </div>
+              <div v-else-if="uploadError">
+                <p class="font-semibold text-red-700">Tải lên thất bại</p>
+                <p class="text-xs text-red-600 mt-1">{{ uploadError }}</p>
+              </div>
+            </div>
 
             <div class="flex flex-wrap justify-center items-center gap-4">
               <template v-if="!isPhotoTaken">
                 <button v-if="!isCameraOn" @click="startCamera" class="w-full sm:w-auto px-8 py-3 bg-sky-500 text-white font-semibold rounded-full hover:bg-sky-600 transition-all duration-300 shadow-md transform hover:scale-105">Bật Camera</button>
+                <button v-if="!isCameraOn" @click="triggerFileUpload" class="w-full sm:w-auto px-8 py-3 bg-emerald-500 text-white font-semibold rounded-full hover:bg-emerald-600 transition-all duration-300 shadow-md transform hover:scale-105" :disabled="areAllPhotosTaken">Tải ảnh lên</button>
                 
                 <template v-else>
                     <button :disabled="isCapturing || areAllPhotosTaken" @click="handlePrimaryCapture" class="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 bg-red-500 text-white font-semibold rounded-full hover:bg-red-600 transition-all duration-300 shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed transform hover:scale-105" :class="{'animate-pulse': isCapturing && !isContinuousShooting}">
@@ -654,6 +746,23 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- Cropping Modal -->
+    <div v-if="isCropping" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+      <div class="bg-white p-6 rounded-lg shadow-xl max-w-2xl w-full">
+        <h3 class="text-xl font-semibold mb-4">Cắt ảnh</h3>
+        <div class="max-h-[60vh]">
+          <img ref="cropImageRef" :src="imageToCrop" alt="Image to crop" class="max-w-full">
+        </div>
+        <div class="flex justify-end gap-4 mt-4">
+          <button @click="cancelCrop" class="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400 transition">Hủy</button>
+          <button @click="confirmCrop" class="px-4 py-2 bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition">Xác nhận</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hidden file input -->
+    <input type="file" ref="fileInput" @change="onFileChange" accept="image/*" class="hidden">
   </div>
 </template>
 
@@ -764,4 +873,8 @@ input[type="color"]::-moz-color-swatch {
   opacity: 1;
   background-color: rgba(239, 68, 68, 1); /* red-500 */
 }
+
+/* Add Cropper.js CSS if not globally available */
+@import 'https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css';
+
 </style>
