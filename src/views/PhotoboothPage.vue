@@ -2,6 +2,7 @@
 import { ref, onUnmounted, computed, watch } from 'vue';
 import previewImage from '../assets/mascot-bear.png';
 import mascotBearLogo from '../assets/mascot-bear.png';
+import { availableFrames } from '../config/frames.js';
 
 const videoRef = ref(null);
 const canvasRef = ref(null);
@@ -21,34 +22,6 @@ const isCapturing = ref(false);
 const countdown = ref(0);
 
 const selectedOverlayFrame = ref(null);
-const availableFrames = ref({
-  single: [
-    '/frames/single/pinkv2single.png',
-    '/frames/single/cutesingle.png',
-    '/frames/single/hellokitty.png',
-    '/frames/single/3congausingle.png',
-    '/frames/single/minionsingle.png',
-    '/frames/single/locketsingle.png',
-    '/frames/single/3cogaisingle.png',
-    '/frames/single/thohongsingle.png',
-  ],
-  strip: [
-    '/frames/strip/cutestrip.png',
-    '/frames/strip/hellokittystrip.png',
-    '/frames/strip/3congaustrip.png',
-    '/frames/strip/minionstrip.png',
-    '/frames/strip/locketstrip.png',
-    '/frames/strip/3cogaistrip.png',
-    '/frames/strip/thohongstrip.png',
-  ],
-  grid_2x3: [
-    '/frames/grid_2x3/cutegrid.png',
-    '/frames/grid_2x3/minion_2x3.png',
-    '/frames/grid_2x3/locketgrid.png',
-    '/frames/grid_2x3/3cogaigrid.png',
-    '/frames/grid_2x3/thohonggrid.png',
-  ]
-});
 
 const activeFilter = ref('filter-none');
 const filters = ref([
@@ -106,32 +79,6 @@ const uploadToImgBB = async () => {
   } finally {
     isUploading.value = false;
   }
-};
-
-const copyUrl = (url) => {
-  const el = document.createElement('textarea');
-  el.value = url;
-  document.body.appendChild(el);
-  el.select();
-  document.execCommand('copy');
-  document.body.removeChild(el);
-  showCustomMessageBox('Đã sao chép link!');
-};
-
-const showCustomMessageBox = (message) => {
-  const messageBox = document.createElement('div');
-  messageBox.className = 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black text-white px-6 py-3 rounded-lg shadow-lg z-50 opacity-0 transition-opacity duration-300';
-  messageBox.textContent = message;
-  document.body.appendChild(messageBox);
-
-  setTimeout(() => {
-    messageBox.style.opacity = '1';
-  }, 10);
-
-  setTimeout(() => {
-    messageBox.style.opacity = '0';
-    messageBox.addEventListener('transitionend', () => messageBox.remove());
-  }, 2000);
 };
 
 const generateFinalImage = async (backgroundColor) => {
@@ -212,7 +159,7 @@ const generateFinalImage = async (backgroundColor) => {
     const logoHeight = 100;
     const logoAspectRatio = logo.width / logo.height;
     const logoWidth = logoHeight * logoAspectRatio;
-    const webName = 'DEMO STUDIO';
+    const webName = 'SmileUp!';
     const textHeight = 25;
     const spaceBetweenLogoAndText = 5;
     const totalContentHeight = logoHeight + spaceBetweenLogoAndText + textHeight;
@@ -417,8 +364,15 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-col items-center p-4 md:p-8 bg-sky-50 min-h-screen font-inter">
-    <div class="w-full max-w-5xl flex flex-col md:flex-row gap-8 pt-8">
+  <div class="relative flex flex-col items-center p-4 md:p-8 bg-sky-50 min-h-screen font-inter overflow-hidden">
+    
+    <div class="absolute bottom-0 left-0 w-full h-1/4 pointer-events-none z-0">
+        <div class="wave wave1"></div>
+        <div class="wave wave2"></div>
+        <div class="wave wave3"></div>
+    </div>
+    
+    <div class="w-full max-w-5xl flex flex-col md:flex-row gap-8 pt-8 relative z-10">
       
       <div class="w-full md:w-1/4 flex flex-col">
         <div class="bg-white p-4 rounded-xl shadow-md">
@@ -515,7 +469,18 @@ onUnmounted(() => {
             </div>
           
           <div class="flex flex-col justify-center items-center gap-4">
-           
+            <div v-if="isPhotoTaken" class="w-full max-w-md p-4 mb-4 text-center bg-sky-100 border border-sky-200 rounded-lg">
+              <div v-if="isUploading">
+                <p class="font-semibold text-sky-700">Đang tải ảnh lên, vui lòng chờ...</p>
+              </div>
+              <div v-else-if="uploadedImageUrl">
+                <p class="font-semibold text-green-700">Tải lên thành công!</p>
+              </div>
+              <div v-else-if="uploadError">
+                <p class="font-semibold text-red-700">Tải lên thất bại</p>
+                <p class="text-xs text-red-600 mt-1">{{ uploadError }}</p>
+              </div>
+            </div>
 
             <div class="flex flex-wrap justify-center items-center gap-4">
               <template v-if="!isPhotoTaken">
@@ -626,5 +591,41 @@ input[type="color"]::-webkit-color-swatch {
 input[type="color"]::-moz-color-swatch {
   border-radius: 50%;
   border: 2px solid #e2e8f0;
+}
+
+@keyframes wave-animation {
+  0% { transform: translateX(0) scaleY(1); }
+  50% { transform: translateX(-25px) scaleY(1.05); }
+  100% { transform: translateX(0) scaleY(1); }
+}
+
+.wave {
+  position: absolute;
+  left: -100px;
+  right: -100px;
+  bottom: 0;
+  background-color: #bae6fd;
+  height: 150px;
+  border-radius: 50% 50% 0 0;
+  transform-origin: bottom;
+  animation: wave-animation 25s ease-in-out infinite;
+  opacity: 0.7;
+}
+
+.wave.wave2 {
+  background-color: #7dd3fc;
+  height: 120px;
+  bottom: 10px;
+  opacity: 0.5;
+  animation-duration: 20s;
+  animation-direction: reverse;
+}
+
+.wave.wave3 {
+  background-color: #38bdf8;
+  height: 100px;
+  bottom: 20px;
+  opacity: 0.3;
+  animation-duration: 15s;
 }
 </style>
