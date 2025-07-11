@@ -1,7 +1,6 @@
 <script setup>
 import { ref, onUnmounted, computed, watch, nextTick } from 'vue';
 // Đảm bảo đường dẫn import là chính xác.
-// Hãy chắc chắn rằng bạn có file 'mascot-bear.png' trong thư mục 'src/assets'.
 import previewImage from '../assets/mascot-bear.png';
 import mascotBearLogo from '../assets/mascot-bear.png';
 import { availableFrames } from '../config/frames.js';
@@ -156,7 +155,6 @@ const selectFrame = (type) => {
   isPhotoTaken.value = false;
   photoData.value = null;
   
-  // Initialize the photos array with correct length for multi-photo layouts
   if (type === 'strip' || type === 'grid_2x3') {
     photosInStrip.value = new Array(maxPhotos.value).fill(undefined);
   } else {
@@ -193,7 +191,6 @@ const uploadToImgBB = async () => {
 };
 
 const generateFinalImage = async (backgroundColor) => {
-  // SỬA LỖI: Sử dụng computed property để kiểm tra, an toàn và rõ ràng hơn
   if (!areAllPhotosTaken.value) return;
 
   const canvas = canvasRef.value;
@@ -317,7 +314,7 @@ const startCamera = async () => {
 
   try {
     if (stream) {
-      stopCamera();
+      stream.getTracks().forEach(track => track.stop());
     }
     stream = await navigator.mediaDevices.getUserMedia({
       video: { width: { ideal: 1920 }, facingMode: 'user' },
@@ -325,7 +322,6 @@ const startCamera = async () => {
     });
     if (videoRef.value) {
       videoRef.value.srcObject = stream;
-      // SỬA LỖI: Đợi video tải xong metadata để đảm bảo kích thước video là chính xác khi chụp
       await new Promise(resolve => {
         videoRef.value.onloadedmetadata = () => resolve();
       });
@@ -376,8 +372,7 @@ const captureFrame = () => {
 
   const videoWidth = video.videoWidth;
   const videoHeight = video.videoHeight;
-  
-  // Tránh lỗi chia cho 0 nếu video chưa sẵn sàng
+
   if (videoWidth === 0 || videoHeight === 0) return null;
   
   const videoAspectRatio = videoWidth / videoHeight;
@@ -475,7 +470,7 @@ const onFileChange = (event) => {
         };
         reader.readAsDataURL(file);
     }
-    event.target.value = ''; // Reset input to allow same file selection
+    event.target.value = ''; // Reset input
 };
 
 watch(isCropping, (newVal) => {
@@ -676,7 +671,6 @@ onUnmounted(() => {
             <div class="flex flex-wrap justify-center items-center gap-4">
               <template v-if="!isPhotoTaken">
                 <button v-if="!isCameraOn" @click="startCamera" class="w-full sm:w-auto px-8 py-3 bg-sky-500 text-white font-semibold rounded-full hover:bg-sky-600 transition-all duration-300 shadow-md transform hover:scale-105">Bật Camera</button>
-                <button v-if="!isCameraOn" @click="triggerFileUpload" class="w-full sm:w-auto px-8 py-3 bg-emerald-500 text-white font-semibold rounded-full hover:bg-emerald-600 transition-all duration-300 shadow-md transform hover:scale-105" :disabled="areAllPhotosTaken">Tải ảnh lên</button>
                 
                 <template v-else>
                     <button :disabled="isCapturing || areAllPhotosTaken" @click="handlePrimaryCapture" class="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 bg-red-500 text-white font-semibold rounded-full hover:bg-red-600 transition-all duration-300 shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed transform hover:scale-105" :class="{'animate-pulse': isCapturing && !isContinuousShooting}">
@@ -688,6 +682,8 @@ onUnmounted(() => {
                       {{ isContinuousShooting ? 'Dừng chụp' : 'Chụp liên tục' }}
                     </button>
                 </template>
+                
+                <button @click="triggerFileUpload" class="w-full sm:w-auto px-8 py-3 bg-sky-500 text-white font-semibold rounded-full hover:bg-sky-600 transition-all duration-300 shadow-md transform hover:scale-105" :disabled="areAllPhotosTaken">Tải ảnh lên</button>
               </template>
               
               <template v-else>
@@ -758,10 +754,8 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-/* CẢI TIẾN: Đặt @import lên đầu */
 @import 'https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css';
 
-/* Base styles */
 video {
   transform: scaleX(-1);
 }
@@ -804,12 +798,10 @@ input[type="color"]::-moz-color-swatch {
   border: 2px solid #e2e8f0;
 }
 
-/* --- NEW STAR EFFECT STYLES --- */
 .starry-sky-bg {
   background: white;
 }
 
-/* Static Starry Background */
 .static-stars-container {
   position: absolute;
   top: 0;
@@ -865,6 +857,6 @@ input[type="color"]::-moz-color-swatch {
 }
 .delete-photo-btn:hover {
   opacity: 1;
-  background-color: rgba(239, 68, 68, 1); /* red-500 */
+  background-color: rgba(239, 68, 68, 1);
 }
 </style>
