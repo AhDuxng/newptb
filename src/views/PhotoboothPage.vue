@@ -54,12 +54,11 @@ let downloadTimer = null;
 let stream = null;
 let captureLoopTimeout = null;
 
-// MỚI: Ref cho hiệu ứng sao băng
 const shootingStars = ref([]);
 
 onMounted(() => {
-  // Tạo các ngôi sao băng ngẫu nhiên
-  const numStars = 25;
+  // Giảm số lượng sao băng để tối ưu hiệu năng
+  const numStars = 15;
   const newStars = [];
   for (let i = 0; i < numStars; i++) {
     newStars.push({
@@ -67,8 +66,8 @@ onMounted(() => {
       style: {
         top: `${Math.random() * 100}%`,
         left: `${Math.random() * 100}%`,
-        animationDuration: `${Math.random() * 2 + 1}s`, // Tốc độ rơi từ 1-3 giây
-        animationDelay: `${Math.random() * 10}s`,    // Xuất hiện ngẫu nhiên trong 10 giây
+        animationDuration: `${Math.random() * 2 + 1.5}s`, // Tốc độ rơi từ 1.5-3.5 giây
+        animationDelay: `${Math.random() * 10}s`,
       }
     });
   }
@@ -181,7 +180,7 @@ const generateFinalImage = async (backgroundColor) => {
     const logoHeight = 100;
     const logoAspectRatio = logo.width / logo.height;
     const logoWidth = logoHeight * logoAspectRatio;
-    const webName = 'SmileUp!';
+    const webName = 'SmileUp!'; // SỬA LỖI: Đổi tên thành SmileUp!
     const textHeight = 25;
     const spaceBetweenLogoAndText = 5;
     const totalContentHeight = logoHeight + spaceBetweenLogoAndText + textHeight;
@@ -629,7 +628,7 @@ input[type="color"]::-moz-color-swatch {
   height: 2px;
   background-color: #fff;
   border-radius: 50%;
-  box-shadow: 0 0 8px 2px rgba(125, 211, 252, 0.8); /* Màu lấp lánh xanh da trời */
+  box-shadow: 0 0 8px 2px rgba(125, 211, 252, 0.8);
   animation: shooting-star-animation linear infinite;
 }
 
