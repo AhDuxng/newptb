@@ -59,16 +59,22 @@ let captureLoopTimeout = null;
 
 // --- Falling Stars Effect ---
 const stars = ref([]);
-const NUMBER_OF_STARS = 20; // Dễ dàng thay đổi số lượng sao
+const NUMBER_OF_STARS = 25; // Dễ dàng thay đổi số lượng sao
 
 const generateStars = () => {
   const newStars = [];
   for (let i = 0; i < NUMBER_OF_STARS; i++) {
+    const scale = Math.random() * 0.7 + 0.5; // Kích thước ngẫu nhiên từ 0.5 đến 1.2
     const style = {
+      // Vị trí bắt đầu ngẫu nhiên
       left: `${Math.random() * 100}%`,
-      height: `${Math.random() * 2 + 1}px`,
-      animationDelay: `-${Math.random() * 10}s`,
-      animationDuration: `${Math.random() * 3 + 3}s, ${Math.random() * 3 + 5}s`
+      top: `${Math.random() * -100}%`, // Bắt đầu từ các vị trí khác nhau ở phía trên
+      // Tốc độ rơi và thời gian tồn tại của vệt sáng ngẫu nhiên
+      animationDuration: `${Math.random() * 3 + 2}s, ${Math.random() * 3 + 2}s`,
+      // Delay ngẫu nhiên để các sao không rơi cùng lúc
+      animationDelay: `${Math.random() * 7}s`,
+      // Kích thước ngẫu nhiên để tạo cảm giác chiều sâu
+      transform: `scale(${scale})`,
     };
     newStars.push({ style });
   }
@@ -667,32 +673,37 @@ input[type="color"]::-moz-color-swatch {
 
 .star {
   position: absolute;
-  top: -10px;
-  background: linear-gradient(-45deg, rgba(158, 221, 255, 1), rgba(255, 255, 255, 0));
-  filter: drop-shadow(0 0 6px rgba(188, 233, 255, 0.8));
+  /* Đuôi sao chéo hơn và tự nhiên hơn */
+  background: linear-gradient(45deg, rgba(255, 255, 255, 0.8), transparent);
+  filter: drop-shadow(0 0 8px rgba(213, 236, 255, 0.7));
   border-radius: 999px;
+  /* Áp dụng 2 animation */
   animation: fall linear infinite, tail linear infinite;
 }
 
-/* SỬA LỖI: Animation rơi thẳng từ trên xuống */
+/* Animation rơi chéo từ trên xuống */
 @keyframes fall {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
   to {
-    /* Chỉ di chuyển theo trục Y để rơi thẳng xuống */
-    transform: translateY(100vh);
+    /* Rơi chéo về phía dưới bên trái, tạo cảm giác chân thật hơn */
+    transform: translate3d(-150px, 120vh, 0);
   }
 }
 
+/* Animation cho vệt sáng của sao */
 @keyframes tail {
   0% {
     width: 0;
     opacity: 1;
   }
   30% {
-    width: 100px;
+    width: 150px; /* Đuôi dài hơn */
     opacity: 1;
   }
   100% {
-    width: 100px;
+    width: 150px;
     opacity: 0;
   }
 }
