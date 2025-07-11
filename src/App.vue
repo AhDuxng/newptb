@@ -18,7 +18,7 @@ import { RouterLink, RouterView } from 'vue-router'
           <div class="w-10 h-10 bg-sky-500 rounded-full flex items-center justify-center transition-transform hover:scale-110">
             <span class="text-white font-bold text-lg">D</span>
           </div>
-          <h1 class="text-2xl font-bold text-sky-700">DEMO STUDIO</h1>
+          <h1 class="text-2xl font-bold text-sky-700">SmileUp!</h1>
         </RouterLink>
         <div class="hidden md:flex items-center space-x-8">
           <RouterLink to="/photobooth" class="text-gray-700 hover:text-sky-600 transition-colors duration-300 font-medium text-base">Photobooth</RouterLink>
