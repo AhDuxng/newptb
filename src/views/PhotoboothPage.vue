@@ -1,10 +1,8 @@
 <script setup>
 import { ref, onUnmounted, computed, watch, nextTick } from 'vue';
-// Đảm bảo đường dẫn import là chính xác.
 import previewImage from '../assets/mascot-bear.png';
 import mascotBearLogo from '../assets/mascot-bear.png';
 import { availableFrames } from '../config/frames.js';
-// Giữ lại import này sau khi đã cài đặt qua npm
 import Cropper from 'cropperjs';
 
 // --- State Management ---
@@ -21,7 +19,7 @@ const uploadError = ref(null);
 
 const activeFrameType = ref('single');
 const photosInStrip = ref([]);
-const stripCaptureStep = ref(0); // Now indicates the index to capture into
+const stripCaptureStep = ref(0);
 const isCapturing = ref(false);
 const countdown = ref(0);
 
@@ -65,17 +63,18 @@ const cropImageRef = ref(null);
 const imageToCrop = ref(null);
 let cropperInstance = null;
 
+// --- SỬA LỖI IPHONE: Thêm ref cho canvas xem trước và ID cho vòng lặp animation ---
+const previewCanvasRef = ref(null);
+let animationFrameId = null;
 
 // --- Starry Sky Effect ---
 const staticStarsSmall = ref([]);
 const staticStarsMedium = ref([]);
 const staticStarsLarge = ref([]);
-
 const NUMBER_OF_STATIC_STARS_SM = 100;
 const NUMBER_OF_STATIC_STARS_MD = 50;
 const NUMBER_OF_STATIC_STARS_LG = 25;
 
-// Generate static, twinkling stars with parallax effect
 const generateStaticStars = () => {
   const createStars = (count, sizeMin, sizeMax, durationMin, durationMax) => {
     const stars = [];
@@ -83,10 +82,8 @@ const generateStaticStars = () => {
       const size = Math.random() * (sizeMax - sizeMin) + sizeMin;
       stars.push({
         style: {
-          width: `${size}px`,
-          height: `${size}px`,
-          left: `${Math.random() * 100}%`,
-          top: `${Math.random() * 100}%`,
+          width: `${size}px`, height: `${size}px`,
+          left: `${Math.random() * 100}%`, top: `${Math.random() * 100}%`,
           animationDelay: `${Math.random() * 8}s`,
           animationDuration: `${Math.random() * (durationMax - durationMin) + durationMin}s`,
         }
@@ -94,12 +91,10 @@ const generateStaticStars = () => {
     }
     return stars;
   };
-
   staticStarsSmall.value = createStars(NUMBER_OF_STATIC_STARS_SM, 0.5, 1, 4, 7);
   staticStarsMedium.value = createStars(NUMBER_OF_STATIC_STARS_MD, 1, 1.5, 6, 9);
   staticStarsLarge.value = createStars(NUMBER_OF_STATIC_STARS_LG, 1.5, 2.2, 8, 11);
 };
-
 generateStaticStars();
 
 // --- Computed properties ---
@@ -118,26 +113,48 @@ const areAllPhotosTaken = computed(() => {
     if (activeFrameType.value === 'single') {
         return photosInStrip.value.length > 0 && photosInStrip.value[0];
     }
-    // Check if all slots are filled (not undefined)
     return photosInStrip.value.length === maxPhotos.value && photosInStrip.value.every(p => p);
 });
 
-
 const captureButtonText = computed(() => {
-    if (areAllPhotosTaken.value) {
-        return 'Hoàn tất';
-    }
+    if (areAllPhotosTaken.value) return 'Hoàn tất';
     if (isCameraOn.value && !isPhotoTaken.value) {
-        if (activeFrameType.value === 'strip' || activeFrameType.value === 'grid_2x3') {
+        if (activeFrameType.value !== 'single') {
             return `Chụp ảnh (${stripCaptureStep.value + 1}/${maxPhotos.value})`;
         }
     }
     return 'Chụp ảnh';
 });
 
+// --- SỬA LỖI IPHONE: Hàm vẽ video lên canvas xem trước ---
+const renderVideoToCanvas = () => {
+  if (!isCameraOn.value || !videoRef.value || !previewCanvasRef.value) {
+    return;
+  }
+
+  const video = videoRef.value;
+  const canvas = previewCanvasRef.value;
+  const context = canvas.getContext('2d');
+
+  const videoWidth = video.videoWidth;
+  const videoHeight = video.videoHeight;
+
+  if (canvas.width !== videoWidth) canvas.width = videoWidth;
+  if (canvas.height !== videoHeight) canvas.height = videoHeight;
+  
+  // Lật canvas theo chiều ngang để mô phỏng hiệu ứng gương của camera trước
+  context.translate(videoWidth, 0);
+  context.scale(-1, 1);
+  
+  context.drawImage(video, 0, 0, videoWidth, videoHeight);
+
+  // Reset lại transform để không ảnh hưởng đến frame tiếp theo
+  context.setTransform(1, 0, 0, 1, 0, 0);
+
+  animationFrameId = requestAnimationFrame(renderVideoToCanvas);
+};
 
 // --- Methods ---
-
 const updateStripCaptureStep = () => {
     const nextSlot = photosInStrip.value.findIndex(photo => !photo);
     stripCaptureStep.value = nextSlot === -1 ? maxPhotos.value : nextSlot;
@@ -308,6 +325,7 @@ watch([frameColor, selectedOverlayFrame], () => {
   }
 });
 
+// SỬA LỖI IPHONE: Cập nhật hàm startCamera và stopCamera
 const startCamera = async () => {
   isCameraOn.value = true;
   await nextTick(); 
@@ -323,10 +341,11 @@ const startCamera = async () => {
     if (videoRef.value) {
       videoRef.value.srcObject = stream;
       await new Promise(resolve => {
-        videoRef.value.onloadedmetadata = () => resolve();
+        videoRef.value.onloadedmetadata = () => {
+            renderVideoToCanvas(); // Bắt đầu vòng lặp vẽ khi video sẵn sàng
+            resolve();
+        };
       });
-    } else {
-      console.error("Video element not found after nextTick.");
     }
   } catch (error) {
     console.error("Lỗi Camera:", error);
@@ -338,6 +357,10 @@ const startCamera = async () => {
 const stopCamera = () => {
   if (stream) {
     stream.getTracks().forEach(track => track.stop());
+  }
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId); // Dừng vòng lặp vẽ
+    animationFrameId = null;
   }
   isCameraOn.value = false;
   stream = null;
@@ -470,7 +493,7 @@ const onFileChange = (event) => {
         };
         reader.readAsDataURL(file);
     }
-    event.target.value = ''; // Reset input
+    event.target.value = '';
 };
 
 watch(isCropping, (newVal) => {
@@ -495,18 +518,14 @@ watch(isCropping, (newVal) => {
 
 const confirmCrop = () => {
     if (!cropperInstance) return;
-
     const croppedImageData = cropperInstance.getCroppedCanvas().toDataURL('image/png');
-    
     if (activeFrameType.value === 'single') {
         photosInStrip.value = [croppedImageData];
     } else {
         photosInStrip.value[stripCaptureStep.value] = croppedImageData;
     }
     updateStripCaptureStep();
-    
     isCropping.value = false;
-
     if (areAllPhotosTaken.value) {
         generateFinalImage(frameColor.value);
     }
@@ -516,8 +535,6 @@ const cancelCrop = () => {
     isCropping.value = false;
 };
 
-
-// Initialize with a default frame type on component mount
 selectFrame('single');
 
 onUnmounted(() => {
@@ -530,6 +547,7 @@ onUnmounted(() => {
 <template>
   <div class="starry-sky-bg relative flex flex-col items-center p-4 md:p-8 min-h-screen font-inter overflow-hidden">
     
+    <!-- Starry Background -->
     <div class="static-stars-container parallax-sm pointer-events-none">
       <div v-for="(star, index) in staticStarsSmall" :key="`ss-sm-${index}`" class="static-star star-sm" :style="star.style"></div>
     </div>
@@ -542,6 +560,7 @@ onUnmounted(() => {
     
     <div class="w-full max-w-7xl flex flex-col md:flex-row gap-8 pt-8 relative z-10">
       
+      <!-- Left Panel: Layout Selection -->
       <div class="w-full md:w-[280px] md:flex-shrink-0 flex flex-col">
         <div class="bg-white p-4 rounded-xl shadow-md">
           <h3 class="text-lg font-semibold text-sky-800 mb-3 text-center md:text-left">Chọn loại bố cục</h3>
@@ -605,6 +624,7 @@ onUnmounted(() => {
         </div>
       </div>
 
+      <!-- Right Panel: Camera View and Controls -->
       <div class="w-full md:flex-1">
         <div class="bg-white/60 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-sky-200">
           
@@ -622,12 +642,20 @@ onUnmounted(() => {
           
           <div v-else class="mb-6">
             <div class="flex flex-col md:flex-row gap-4">
+                <!-- SỬA LỖI IPHONE: Thay thế video bằng canvas -->
                 <div class="relative w-full aspect-video bg-gray-900 rounded-lg overflow-hidden flex items-center justify-center shadow-inner" :class="{'md:w-full': activeFrameType === 'single', 'md:w-2/3': activeFrameType !== 'single'}">
-                    <video ref="videoRef" autoplay playsinline muted class="w-full h-full object-cover transition-all duration-300" :class="activeFilter"></video>
+                    <!-- Video gốc được ẩn đi, chỉ dùng để lấy dữ liệu -->
+                    <video ref="videoRef" autoplay playsinline muted class="hidden"></video>
+                    <!-- Canvas này sẽ hiển thị video xem trước cho người dùng -->
+                    <canvas 
+                        ref="previewCanvasRef" 
+                        class="w-full h-full object-cover transition-all duration-300"
+                        :class="activeFilter"
+                    ></canvas>
                     <div v-if="countdown > 0" class="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-9xl font-bold z-20">{{ countdown }}</div>
                 </div>
 
-                <div v-if="activeFrameType === 'strip' || activeFrameType === 'grid_2x3'" class="w-full md:w-1/3">
+                <div v-if="activeFrameType !== 'single'" class="w-full md:w-1/3">
                     <div class="grid gap-2 grid-cols-2">
                         <div v-for="i in maxPhotos" :key="i" class="relative aspect-square bg-gray-200 rounded-md flex items-center justify-center" :class="{'ring-2 ring-pink-500 ring-inset': stripCaptureStep === i - 1}">
                             <img v-if="photosInStrip[i-1]" :src="photosInStrip[i-1]" class="w-full h-full object-cover rounded-md">
@@ -643,6 +671,7 @@ onUnmounted(() => {
           
           <canvas ref="canvasRef" class="hidden"></canvas>
 
+          <!-- Filters -->
           <div v-if="isCameraOn && !isPhotoTaken" class="mb-6">
               <div class="flex space-x-4 overflow-x-auto pb-3 -mx-2 px-2">
                 <div v-for="filter in filters" :key="filter.class" @click="applyFilter(filter.class)" class="flex-shrink-0 cursor-pointer text-center group">
@@ -654,7 +683,20 @@ onUnmounted(() => {
               </div>
             </div>
           
+          <!-- Controls -->
           <div class="flex flex-col justify-center items-center gap-4">
+            <div v-if="isPhotoTaken" class="w-full max-w-md p-4 mb-4 text-center bg-sky-100 border border-sky-200 rounded-lg">
+              <div v-if="isUploading">
+                <p class="font-semibold text-sky-700">Đang tải ảnh lên, vui lòng chờ...</p>
+              </div>
+              <div v-else-if="uploadedImageUrl">
+                <p class="font-semibold text-green-700">Tải lên thành công!</p>
+              </div>
+              <div v-else-if="uploadError">
+                <p class="font-semibold text-red-700">Tải lên thất bại</p>
+                <p class="text-xs text-red-600 mt-1">{{ uploadError }}</p>
+              </div>
+            </div>
 
             <div class="flex flex-wrap justify-center items-center gap-4">
               <template v-if="!isPhotoTaken">
@@ -724,6 +766,7 @@ onUnmounted(() => {
       </div>
     </div>
 
+    <!-- Cropping Modal -->
     <div v-if="isCropping" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
       <div class="bg-white p-6 rounded-lg shadow-xl max-w-2xl w-full">
         <h3 class="text-xl font-semibold mb-4">Cắt ảnh</h3>
@@ -737,6 +780,7 @@ onUnmounted(() => {
       </div>
     </div>
 
+    <!-- Hidden file input -->
     <input type="file" ref="fileInput" @change="onFileChange" accept="image/*" class="hidden">
   </div>
 </template>
@@ -744,8 +788,9 @@ onUnmounted(() => {
 <style scoped>
 @import 'https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css';
 
-video {
-  transform: scaleX(-1);
+/* SỬA LỖI IPHONE: Ẩn video gốc đi */
+video.hidden {
+  display: none;
 }
 
 .filter-none { filter: none; }
@@ -801,7 +846,7 @@ input[type="color"]::-moz-color-swatch {
 
 .static-star {
   position: absolute;
-  background-color: #0ea5e9; /* Sea Blue */
+  background-color: #0ea5e9;
   border-radius: 50%;
   animation-name: twinkle;
   animation-timing-function: ease-in-out;
