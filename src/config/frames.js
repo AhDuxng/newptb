@@ -13,6 +13,7 @@ export const availableFrames = ref({
     '/frames/single/locketsingle.png',
     '/frames/single/3cogaisingle.png',
     '/frames/single/thohongsingle.png',
+    '/frames/single/quadausingle.png',
   ],
   strip: [
     '/frames/strip/cutestrip.png',
@@ -22,6 +23,7 @@ export const availableFrames = ref({
     '/frames/strip/locketstrip.png',
     '/frames/strip/3cogaistrip.png',
     '/frames/strip/thohongstrip.png',
+    '/frames/strip/quadaustrip.png',
   ],
   grid_2x3: [
     '/frames/grid_2x3/cutegrid.png',
@@ -29,5 +31,6 @@ export const availableFrames = ref({
     '/frames/grid_2x3/locketgrid.png',
     '/frames/grid_2x3/3cogaigrid.png',
     '/frames/grid_2x3/thohonggrid.png',
+    '/frames/grid_2x3/quadaugrid.png',
   ]
 });
