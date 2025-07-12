@@ -63,7 +63,6 @@ const cropImageRef = ref(null);
 const imageToCrop = ref(null);
 let cropperInstance = null;
 
-// --- SỬA LỖI IPHONE: Thêm ref cho canvas xem trước và ID cho vòng lặp animation ---
 const previewCanvasRef = ref(null);
 let animationFrameId = null;
 
@@ -126,29 +125,23 @@ const captureButtonText = computed(() => {
     return 'Chụp ảnh';
 });
 
-// --- SỬA LỖI IPHONE: Hàm vẽ video lên canvas xem trước ---
+// SỬA LỖI IPHONE: Hàm vẽ video lên canvas, được tối ưu hóa
 const renderVideoToCanvas = () => {
-  if (!isCameraOn.value || !videoRef.value || !previewCanvasRef.value) {
-    return;
+  if (!isCameraOn.value || !videoRef.value || !previewCanvasRef.value || videoRef.value.paused || videoRef.value.ended) {
+    return; // Dừng vòng lặp nếu video không chạy
   }
 
   const video = videoRef.value;
   const canvas = previewCanvasRef.value;
   const context = canvas.getContext('2d');
-
-  const videoWidth = video.videoWidth;
-  const videoHeight = video.videoHeight;
-
-  if (canvas.width !== videoWidth) canvas.width = videoWidth;
-  if (canvas.height !== videoHeight) canvas.height = videoHeight;
   
-  // Lật canvas theo chiều ngang để mô phỏng hiệu ứng gương của camera trước
-  context.translate(videoWidth, 0);
+  // Lật canvas theo chiều ngang để mô phỏng hiệu ứng gương
+  context.translate(canvas.width, 0);
   context.scale(-1, 1);
   
-  context.drawImage(video, 0, 0, videoWidth, videoHeight);
+  context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-  // Reset lại transform để không ảnh hưởng đến frame tiếp theo
+  // Reset transform
   context.setTransform(1, 0, 0, 1, 0, 0);
 
   animationFrameId = requestAnimationFrame(renderVideoToCanvas);
@@ -325,7 +318,7 @@ watch([frameColor, selectedOverlayFrame], () => {
   }
 });
 
-// SỬA LỖI IPHONE: Cập nhật hàm startCamera và stopCamera
+// SỬA LỖI IPHONE: Cập nhật hàm startCamera và stopCamera để đảm bảo video chạy
 const startCamera = async () => {
   isCameraOn.value = true;
   await nextTick(); 
@@ -338,14 +331,22 @@ const startCamera = async () => {
       video: { width: { ideal: 1920 }, facingMode: 'user' },
       audio: false
     });
-    if (videoRef.value) {
-      videoRef.value.srcObject = stream;
-      await new Promise(resolve => {
-        videoRef.value.onloadedmetadata = () => {
-            renderVideoToCanvas(); // Bắt đầu vòng lặp vẽ khi video sẵn sàng
-            resolve();
-        };
-      });
+    const video = videoRef.value;
+    if (video) {
+      video.srcObject = stream;
+      // Lắng nghe sự kiện 'playing' để đảm bảo video đã thực sự chạy
+      video.onplaying = () => {
+        const canvas = previewCanvasRef.value;
+        if (canvas) {
+          // Cập nhật kích thước canvas cho đúng với video
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+        }
+        // Bắt đầu vòng lặp vẽ khi video đã chạy
+        renderVideoToCanvas();
+      };
+      // Một số trình duyệt cần lệnh play() tường minh
+      await video.play();
     }
   } catch (error) {
     console.error("Lỗi Camera:", error);
@@ -359,7 +360,7 @@ const stopCamera = () => {
     stream.getTracks().forEach(track => track.stop());
   }
   if (animationFrameId) {
-    cancelAnimationFrame(animationFrameId); // Dừng vòng lặp vẽ
+    cancelAnimationFrame(animationFrameId);
     animationFrameId = null;
   }
   isCameraOn.value = false;
@@ -642,15 +643,13 @@ onUnmounted(() => {
           
           <div v-else class="mb-6">
             <div class="flex flex-col md:flex-row gap-4">
-                <!-- SỬA LỖI IPHONE: Thay thế video bằng canvas -->
                 <div class="relative w-full aspect-video bg-gray-900 rounded-lg overflow-hidden flex items-center justify-center shadow-inner" :class="{'md:w-full': activeFrameType === 'single', 'md:w-2/3': activeFrameType !== 'single'}">
-                    <!-- Video gốc được ẩn đi, chỉ dùng để lấy dữ liệu -->
-                    <video ref="videoRef" autoplay playsinline muted class="hidden"></video>
-                    <!-- Canvas này sẽ hiển thị video xem trước cho người dùng -->
+                    <!-- SỬA LỖI IPHONE: Ẩn video bằng cách đẩy ra khỏi màn hình thay vì display:none -->
+                    <video ref="videoRef" autoplay playsinline muted style="position: absolute; top: -9999px; left: -9999px; opacity: 0;"></video>
                     <canvas 
                         ref="previewCanvasRef" 
                         class="w-full h-full object-cover transition-all duration-300"
-                        :class="activeFilter"
+                        :style="{ filter: filterCssMap[activeFilter] }"
                     ></canvas>
                     <div v-if="countdown > 0" class="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-9xl font-bold z-20">{{ countdown }}</div>
                 </div>
@@ -787,11 +786,6 @@ onUnmounted(() => {
 
 <style scoped>
 @import 'https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css';
-
-/* SỬA LỖI IPHONE: Ẩn video gốc đi */
-video.hidden {
-  display: none;
-}
 
 .filter-none { filter: none; }
 .filter-grayscale { filter: grayscale(100%); }
