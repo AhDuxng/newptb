@@ -28,7 +28,6 @@ const selectedOverlayFrame = ref(null);
 const activeFilter = ref('filter-none');
 const filters = ref([
   { name: 'Gốc', class: 'filter-none' },
-  // THÊM BỘ LỌC MỚI
   { name: 'Làm đẹp', class: 'filter-beautify' },
   { name: 'Sắc nét', class: 'filter-contrast' },
   { name: 'Nâu đỏ', class: 'filter-sepia' },
@@ -39,8 +38,7 @@ const filters = ref([
 
 const filterCssMap = {
   'filter-none': 'none',
-  // THÊM THUỘC TÍNH CSS CHO BỘ LỌC MỚI
-  'filter-beautify': 'brightness(1.15) contrast(0.9) saturate(1.1)',
+  'filter-beautify': 'brightness(1.1) contrast(0.9) saturate(1.15)',
   'filter-contrast': 'contrast(140%)',
   'filter-sepia': 'sepia(100%)',
   'filter-grayscale': 'grayscale(100%)',
@@ -782,11 +780,9 @@ onUnmounted(() => {
 <style scoped>
 @import 'https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css';
 
-/* THÊM CSS CHO BỘ LỌC MỚI */
 .filter-beautify { 
-  filter: brightness(1.15) contrast(0.9) saturate(1.1);
+  filter: brightness(1.1) contrast(0.9) saturate(1.15);
 }
-
 .filter-none { filter: none; }
 .filter-grayscale { filter: grayscale(100%); }
 .filter-sepia { filter: sepia(100%); }
