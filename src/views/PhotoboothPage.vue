@@ -684,18 +684,6 @@ onUnmounted(() => {
           
           <!-- Controls -->
           <div class="flex flex-col justify-center items-center gap-4">
-            <div v-if="isPhotoTaken" class="w-full max-w-md p-4 mb-4 text-center bg-sky-100 border border-sky-200 rounded-lg">
-              <div v-if="isUploading">
-                <p class="font-semibold text-sky-700">Đang tải ảnh lên, vui lòng chờ...</p>
-              </div>
-              <div v-else-if="uploadedImageUrl">
-                <p class="font-semibold text-green-700">Tải lên thành công!</p>
-              </div>
-              <div v-else-if="uploadError">
-                <p class="font-semibold text-red-700">Tải lên thất bại</p>
-                <p class="text-xs text-red-600 mt-1">{{ uploadError }}</p>
-              </div>
-            </div>
 
             <div class="flex flex-wrap justify-center items-center gap-4">
               <template v-if="!isPhotoTaken">
