@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { RouterLink, RouterView } from 'vue-router'
 import donateQrImage from '@/assets/donate-qr.jpg'; // Import hình ảnh QR
+import newLogo from '@/assets/logo-new.png'; // Import logo mới
 
 // State để điều khiển việc hiển thị của modal
 const isDonateModalVisible = ref(false);
@@ -19,12 +20,11 @@ const isDonateModalVisible = ref(false);
 
     <header class="relative z-10 px-6 py-4">
       <nav class="flex justify-between items-center max-w-7xl mx-auto">
-        <RouterLink to="/" class="flex items-center space-x-3">
-          <div class="w-10 h-10 bg-sky-500 rounded-full flex items-center justify-center transition-transform hover:scale-110">
-            <span class="text-white font-bold text-lg">S</span>
-          </div>
-          <h1 class="text-2xl font-bold text-sky-700">SmileUp!</h1>
+        <!-- THAY ĐỔI: Sử dụng logo mới -->
+        <RouterLink to="/">
+          <img :src="newLogo" alt="SmileUp Logo" class="h-12 w-auto">
         </RouterLink>
+
         <div class="hidden md:flex items-center space-x-8">
           <RouterLink to="/photobooth" class="text-gray-700 hover:text-sky-600 transition-colors duration-300 font-medium text-base">Photobooth</RouterLink>
           
@@ -48,6 +48,7 @@ const isDonateModalVisible = ref(false);
       <p>© 2025 SmileUp!. All Rights Reserved.</p>
     </footer>
 
+    <!-- MODAL HIỂN THỊ QR CODE -->
     <div v-if="isDonateModalVisible" @click="isDonateModalVisible = false" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 transition-opacity duration-300">
         <div @click.stop class="relative bg-white rounded-lg shadow-xl overflow-hidden transform transition-all duration-300 scale-95" :class="{ 'scale-100': isDonateModalVisible }">
             <img :src="donateQrImage" alt="QR Code ủng hộ" class="max-w-xs w-full h-auto object-contain">
