@@ -981,3 +981,4 @@ input[type="color"]::-moz-color-swatch {
   background-color: rgba(239, 68, 68, 1);
 }
 </style>
+
