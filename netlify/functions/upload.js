@@ -2,41 +2,29 @@ import fetch from 'node-fetch';
 import { URLSearchParams } from 'url';
 
 export const handler = async (event) => {
-  // Ghi log khi hàm được gọi để kiểm tra
+  // Ghi log khi hàm được gọi để kiểm tra (chỉ ở phía server)
   console.log('Function "upload" đã được gọi.');
 
   // Chỉ chấp nhận phương thức POST
   if (event.httpMethod !== 'POST') {
-    return { 
-      statusCode: 405, 
-      body: JSON.stringify({ error: 'Phương thức không được phép' }) 
-    };
+    return { statusCode: 405 }; // Lỗi, không trả về body
   }
 
   try {
     const { image } = JSON.parse(event.body);
     if (!image) {
       console.error('Lỗi: Không nhận được dữ liệu ảnh.');
-      return { 
-        statusCode: 400, 
-        body: JSON.stringify({ error: 'Không tìm thấy dữ liệu ảnh.' }) 
-      };
+      return { statusCode: 400 }; // Lỗi, không trả về body
     }
-    // Ghi log độ dài của ảnh để xác nhận đã nhận được dữ liệu
-    console.log(`Đã nhận dữ liệu ảnh với độ dài: ${image.length}`);
+    console.log('Đã nhận dữ liệu ảnh.');
 
-    // Lấy API key từ biến môi trường (an toàn)
     const apiKey = process.env.IMGBB_API_KEY;
     if (!apiKey) {
       console.error('LỖI NGHIÊM TRỌNG: Biến môi trường IMGBB_API_KEY chưa được thiết lập.');
-      return { 
-        statusCode: 500, 
-        body: JSON.stringify({ error: 'API key chưa được cấu hình trên server. Vui lòng kiểm tra biến môi trường.' }) 
-      };
+      return { statusCode: 500 }; // Lỗi, không trả về body
     }
     console.log('Đã tìm thấy API key.');
 
-    // Sử dụng URLSearchParams để gửi dữ liệu base64, đây là cách ImgBB hỗ trợ
     const params = new URLSearchParams();
     params.append('key', apiKey);
     params.append('image', image);
@@ -47,29 +35,25 @@ export const handler = async (event) => {
       body: params,
     });
 
-    // Luôn lấy kết quả trả về để kiểm tra
     const result = await response.json();
-    console.log('Đã nhận phản hồi từ ImgBB:', JSON.stringify(result, null, 2));
+    console.log('Đã nhận phản hồi từ ImgBB.');
 
-    // Kiểm tra kỹ hơn kết quả trả về
     if (!response.ok || !result.success) {
       const errorMessage = result.error?.message || 'Lỗi không xác định từ API ImgBB';
       console.error(`Lỗi API ImgBB: ${errorMessage}`);
+      // Ném lỗi để khối catch xử lý và trả về mã 500 chung
       throw new Error(errorMessage);
     }
 
-    console.log('Tải lên thành công. Đang trả dữ liệu về.');
+    console.log('Tải lên thành công.');
     return {
-      statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(result),
+      statusCode: 204, // Thành công, không có nội dung để trả về
     };
+
   } catch (error) {
+    // Ghi lại lỗi thực tế ở server
     console.error('Đã xảy ra lỗi trong hàm upload:', error);
-    return {
-      statusCode: 500,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ error: error.message }),
-    };
+    // Trả về lỗi chung chung cho client, không có body
+    return { statusCode: 500 };
   }
 };
