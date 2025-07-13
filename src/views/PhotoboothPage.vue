@@ -9,7 +9,8 @@ import Cropper from 'cropperjs';
 const videoRef = ref(null);
 const canvasRef = ref(null);
 const isCameraOn = ref(false);
-const isPhotoTaken = ref(false);
+// NEW: State to manage the UI flow. Replaces the old `isPhotoTaken` boolean.
+const currentStep = ref('capturing'); // Can be: 'capturing', 'reviewing', 'finalizing'
 const photoData = ref(null);
 const errorMessage = ref('');
 
@@ -193,7 +194,7 @@ const areAllPhotosTaken = computed(() => {
 
 const captureButtonText = computed(() => {
     if (areAllPhotosTaken.value) return 'Hoàn tất';
-    if (isCameraOn.value && !isPhotoTaken.value) {
+    if (isCameraOn.value && currentStep.value === 'capturing') {
         if (activeFrameType.value !== 'single') {
             return `Chụp ảnh (${stripCaptureStep.value + 1}/${maxPhotos.value})`;
         }
@@ -242,7 +243,7 @@ const deletePhoto = (index) => {
 
 const selectFrame = (type) => {
   activeFrameType.value = type;
-  isPhotoTaken.value = false;
+  currentStep.value = 'capturing'; // Reset step on layout change
   photoData.value = null;
   
   if (type === 'strip' || type === 'grid_2x3') {
@@ -279,6 +280,13 @@ const uploadToImgBB = async () => {
     isUploading.value = false;
   }
 };
+
+// NEW: Function to proceed to the final editing step
+const proceedToFinalize = () => {
+  currentStep.value = 'finalizing';
+  generateFinalImage(frameColor.value);
+};
+
 
 const generateFinalImage = async (backgroundColor) => {
   if (!areAllPhotosTaken.value) return;
@@ -376,8 +384,7 @@ const generateFinalImage = async (backgroundColor) => {
   }
 
   photoData.value = canvas.toDataURL('image/png');
-  isPhotoTaken.value = true;
-  stopCamera();
+  stopCamera(); // Stop the camera feed when the final image is generated
   uploadToImgBB();
 
   isDownloadReady.value = false;
@@ -392,8 +399,9 @@ const generateFinalImage = async (backgroundColor) => {
   }, 1000);
 };
 
+// Watcher only runs when in the final step
 watch([frameColor, selectedOverlayFrame], () => {
-  if (isPhotoTaken.value) {
+  if (currentStep.value === 'finalizing') {
     generateFinalImage(frameColor.value);
   }
 });
@@ -443,8 +451,9 @@ const stopCamera = () => {
   stream = null;
 };
 
+// `retakePhoto` now resets the step
 const retakePhoto = () => {
-  isPhotoTaken.value = false;
+  currentStep.value = 'capturing';
   photoData.value = null;
   selectFrame(activeFrameType.value); 
   
@@ -505,6 +514,7 @@ const captureFrame = () => {
   return canvas.toDataURL('image/png');
 };
 
+// `runCaptureCycle` now transitions to the 'reviewing' step
 const runCaptureCycle = () => {
     if (isCapturing.value || !isCameraOn.value || areAllPhotosTaken.value) return;
     
@@ -531,7 +541,7 @@ const runCaptureCycle = () => {
             isCapturing.value = false;
             
             if (areAllPhotosTaken.value) {
-                generateFinalImage(frameColor.value);
+                currentStep.value = 'reviewing'; // Go to review step
             } else if (isContinuousShooting.value) {
                 captureLoopTimeout = setTimeout(runCaptureCycle, 1000);
             }
@@ -609,7 +619,7 @@ const confirmCrop = () => {
     updateStripCaptureStep();
     isCropping.value = false;
     if (areAllPhotosTaken.value) {
-        generateFinalImage(frameColor.value);
+        currentStep.value = 'reviewing';
     }
 };
 
@@ -691,7 +701,7 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div v-if="isCameraOn && !isPhotoTaken" class="bg-white p-4 rounded-xl shadow-md mt-6">
+        <div v-if="isCameraOn && currentStep === 'capturing'" class="bg-white p-4 rounded-xl shadow-md mt-6">
           <h4 class="text-lg font-semibold text-sky-800 mb-2 text-center md:text-left">Thời gian chụp</h4>
           <div class="flex justify-center md:justify-start gap-2">
             <button
@@ -710,10 +720,12 @@ onUnmounted(() => {
       <div class="w-full md:flex-1">
         <div class="bg-white/60 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-sky-200">
           
-          <div v-if="isPhotoTaken" class="relative w-full aspect-video bg-gray-200 rounded-lg overflow-hidden flex items-center justify-center mb-6 shadow-inner mx-auto">
-             <img :src="photoData" alt="Ảnh đã chụp" class="w-full h-full object-contain bg-transparent">
+          <!-- Final Image Display -->
+          <div v-if="currentStep === 'finalizing'" class="relative w-full aspect-video bg-gray-200 rounded-lg overflow-hidden flex items-center justify-center mb-6 shadow-inner mx-auto">
+             <img :src="photoData" alt="Ảnh đã hoàn thành" class="w-full h-full object-contain bg-transparent">
           </div>
 
+          <!-- Camera Off Display -->
           <div v-else-if="!isCameraOn" class="relative w-full aspect-video bg-gray-900 rounded-lg overflow-hidden flex items-center justify-center mb-6 shadow-inner mx-auto">
             <div class="h-full flex flex-col items-center justify-center text-center text-white p-4">
               <svg class="w-16 h-16 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
@@ -722,6 +734,7 @@ onUnmounted(() => {
             </div>
           </div>
           
+          <!-- Capturing / Reviewing Display -->
           <div v-else class="mb-6">
             <div class="flex flex-col md:flex-row gap-4">
                 <div class="relative w-full aspect-video bg-gray-900 rounded-lg overflow-hidden flex items-center justify-center shadow-inner" :class="{'md:w-full': activeFrameType === 'single', 'md:w-2/3': activeFrameType !== 'single'}">
@@ -735,10 +748,10 @@ onUnmounted(() => {
 
                 <div v-if="activeFrameType !== 'single'" class="w-full md:w-1/3">
                     <div class="grid gap-2 grid-cols-2">
-                        <div v-for="i in maxPhotos" :key="i" class="relative aspect-square bg-gray-200 rounded-md flex items-center justify-center" :class="{'ring-2 ring-pink-500 ring-inset': stripCaptureStep === i - 1}">
+                        <div v-for="i in maxPhotos" :key="i" class="relative aspect-square bg-gray-200 rounded-md flex items-center justify-center" :class="{'ring-2 ring-pink-500 ring-inset': currentStep === 'capturing' && stripCaptureStep === i - 1}">
                             <img v-if="photosInStrip[i-1]" :src="photosInStrip[i-1]" class="w-full h-full object-cover rounded-md">
                             <span v-else class="text-gray-400 font-bold text-2xl">{{ i }}</span>
-                             <button v-if="photosInStrip[i-1]" @click.stop="deletePhoto(i-1)" class="delete-photo-btn">
+                             <button v-if="photosInStrip[i-1] && currentStep !== 'finalizing'" @click.stop="deletePhoto(i-1)" class="delete-photo-btn">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                             </button>
                         </div>
@@ -749,8 +762,8 @@ onUnmounted(() => {
           
           <canvas ref="canvasRef" class="hidden"></canvas>
 
-          <!-- Filters -->
-          <div v-if="isCameraOn && !isPhotoTaken" class="mb-6">
+          <!-- Filters (Only show during capture) -->
+          <div v-if="isCameraOn && currentStep === 'capturing'" class="mb-6">
               <div class="flex space-x-4 overflow-x-auto pb-3 -mx-2 px-2">
                 <div v-for="filter in filters" :key="filter.class" @click="applyFilter(filter.class)" class="flex-shrink-0 cursor-pointer text-center group">
                   <div class="w-20 h-20 rounded-lg overflow-hidden border-2 transition-all duration-200" :class="[activeFilter === filter.class ? 'border-sky-500 ring-2 ring-sky-300' : 'border-transparent']">
@@ -765,9 +778,9 @@ onUnmounted(() => {
           <div class="flex flex-col justify-center items-center gap-4">
         
             <div class="flex flex-wrap justify-center items-center gap-4">
-              <template v-if="!isPhotoTaken">
+              <!-- Step 1: Not started or Capturing -->
+              <template v-if="currentStep === 'capturing'">
                 <button v-if="!isCameraOn" @click="startCamera" class="w-full sm:w-auto px-8 py-3 bg-sky-500 text-white font-semibold rounded-full hover:bg-sky-600 transition-all duration-300 shadow-md transform hover:scale-105">Bật Camera</button>
-                
                 <template v-else>
                     <button :disabled="isCapturing || areAllPhotosTaken" @click="handlePrimaryCapture" class="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 bg-red-500 text-white font-semibold rounded-full hover:bg-red-600 transition-all duration-300 shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed transform hover:scale-105" :class="{'animate-pulse': isCapturing && !isContinuousShooting}">
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
@@ -777,12 +790,20 @@ onUnmounted(() => {
                     <button v-if="activeFrameType !== 'single' && !areAllPhotosTaken" @click="toggleContinuousShooting" class="w-full sm:w-auto px-6 py-3 font-semibold rounded-full transition-all duration-300 shadow-md transform hover:scale-105" :class="[isContinuousShooting ? 'bg-purple-600 text-white animate-pulse' : 'bg-gray-200 text-gray-800 hover:bg-gray-300']" :disabled="isCapturing && !isContinuousShooting">
                       {{ isContinuousShooting ? 'Dừng chụp' : 'Chụp liên tục' }}
                     </button>
+                    <button @click="triggerFileUpload" class="w-full sm:w-auto px-8 py-3 bg-sky-500 text-white font-semibold rounded-full hover:bg-sky-600 transition-all duration-300 shadow-md transform hover:scale-105" :disabled="areAllPhotosTaken">Tải ảnh lên</button>
                 </template>
-                
-                <button @click="triggerFileUpload" class="w-full sm:w-auto px-8 py-3 bg-sky-500 text-white font-semibold rounded-full hover:bg-sky-600 transition-all duration-300 shadow-md transform hover:scale-105" :disabled="areAllPhotosTaken">Tải ảnh lên</button>
               </template>
               
-              <template v-else>
+              <!-- Step 2: Reviewing Photo -->
+              <template v-if="currentStep === 'reviewing'">
+                  <button @click="retakePhoto" class="px-6 py-3 bg-gray-500 text-white font-semibold rounded-full hover:bg-gray-600 transition-all duration-300 shadow-md">Chụp lại</button>
+                  <button @click="proceedToFinalize" class="px-8 py-3 bg-green-500 text-white font-semibold rounded-full hover:bg-green-600 transition-all duration-300 shadow-md transform hover:scale-105">
+                    Tiếp tục
+                  </button>
+              </template>
+              
+              <!-- Step 3: Finalizing (Frame selection, download) -->
+              <template v-if="currentStep === 'finalizing'">
                 <button @click="retakePhoto" class="px-6 py-3 bg-gray-500 text-white font-semibold rounded-full hover:bg-gray-600 transition-all duration-300 shadow-md">Chụp lại</button>
                 
                 <div class="flex items-center gap-3 bg-gray-200 p-2 rounded-full shadow-inner">
@@ -812,7 +833,8 @@ onUnmounted(() => {
               </template>
             </div>
 
-            <div v-if="isPhotoTaken" class="w-full bg-gray-100 p-4 rounded-lg mt-4">
+            <!-- Frame Selection (Only show during finalization) -->
+            <div v-if="currentStep === 'finalizing'" class="w-full bg-gray-100 p-4 rounded-lg mt-4">
               <h4 class="text-sm font-semibold text-gray-800 mb-3 text-center">Chọn khung trang trí</h4>
               <div class="flex flex-wrap justify-center gap-4">
                 <div @click="selectedOverlayFrame = null" class="cursor-pointer text-center group">
