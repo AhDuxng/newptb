@@ -36,13 +36,17 @@ const filters = ref([
   { name: 'Mùa hè', class: 'filter-summer' },
 ]);
 
-// --- NEW: Pixel manipulation filter functions ---
+// --- Pixel manipulation filter functions ---
+// This is the core of the fix for iOS compatibility.
+// Instead of relying on CSS/Canvas filters, we manipulate pixels directly.
 const applyFilterToImageData = (imageData, filterClass) => {
     const data = imageData.data;
     const len = data.length;
 
+    // Helper function to ensure color values stay within the 0-255 range
     const truncate = (val) => Math.min(255, Math.max(0, val));
 
+    // Iterate over each pixel (which is 4 values in the array: R, G, B, A)
     for (let i = 0; i < len; i += 4) {
         let r = data[i];
         let g = data[i + 1];
@@ -66,61 +70,52 @@ const applyFilterToImageData = (imageData, filterClass) => {
                 break;
             }
             case 'filter-contrast': {
-                const factor = (259 * (140 + 259)) / (255 * (259 - 140));
-                data[i] = truncate(factor * (r - 128) + 128);
-                data[i + 1] = truncate(factor * (g - 128) + 128);
-                data[i + 2] = truncate(factor * (b - 128) + 128);
+                const amount = 1.5; // Contrast amount (1.0 = no change)
+                const avg = (r + g + b) / 3;
+                data[i] = truncate((r - avg) * amount + avg);
+                data[i+1] = truncate((g - avg) * amount + avg);
+                data[i+2] = truncate((b - avg) * amount + avg);
                 break;
             }
             case 'filter-beautify': {
-                // Tăng độ sáng nhẹ và bão hòa
-                const brightness = 1.1;
-                const saturation = 1.15;
-                data[i] = truncate(r * brightness);
-                data[i + 1] = truncate(g * brightness);
-                data[i + 2] = truncate(b * brightness);
-                const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-                data[i] = truncate(avg + (data[i] - avg) * saturation);
-                data[i + 1] = truncate(avg + (data[i + 1] - avg) * saturation);
-                data[i + 2] = truncate(avg + (data[i + 2] - avg) * saturation);
+                // A simple beautify effect: slight brightness and saturation boost
+                const brightness = 1.05;
+                const saturation = 1.1;
+                r = truncate(r * brightness);
+                g = truncate(g * brightness);
+                b = truncate(b * brightness);
+                const avg = (r + g + b) / 3;
+                data[i] = truncate(avg + (r - avg) * saturation);
+                data[i + 1] = truncate(avg + (g - avg) * saturation);
+                data[i + 2] = truncate(avg + (b - avg) * saturation);
                 break;
             }
-             case 'filter-vintage': { // sepia(65%) contrast(110%) brightness(90%) saturate(130%)
+            case 'filter-vintage': {
+                // Apply sepia first
                 let tr = 0.393 * r + 0.769 * g + 0.189 * b;
                 let tg = 0.349 * r + 0.686 * g + 0.168 * b;
                 let tb = 0.272 * r + 0.534 * g + 0.131 * b;
-                r = truncate(tr * 0.65 + r * 0.35);
-                g = truncate(tg * 0.65 + g * 0.35);
-                b = truncate(tb * 0.65 + b * 0.35);
-
-                const contrast = 1.1;
-                const factor = (259 * (110 + 259)) / (255 * (259 - 110));
-                r = truncate(factor * (r - 128) + 128);
-                g = truncate(factor * (g - 128) + 128);
-                b = truncate(factor * (b - 128) + 128);
-
-                r *= 0.9; g *= 0.9; b *= 0.9;
-
-                const saturation = 1.3;
-                const avg = (r + g + b) / 3;
-                data[i] = truncate(avg + (r - avg) * saturation);
-                data[i + 1] = truncate(avg + (g - avg) * saturation);
-                data[i + 2] = truncate(avg + (b - avg) * saturation);
+                r = truncate(tr);
+                g = truncate(tg);
+                b = truncate(tb);
+                // Then reduce brightness slightly
+                r *= 0.95;
+                g *= 0.95;
+                b *= 0.95;
+                data[i] = r; data[i+1] = g; data[i+2] = b;
                 break;
             }
-            case 'filter-summer': { // contrast(110%) brightness(110%) saturate(150%)
-                const factor = (259 * (110 + 259)) / (255 * (259 - 110));
-                r = truncate(factor * (r - 128) + 128);
-                g = truncate(factor * (g - 128) + 128);
-                b = truncate(factor * (b - 128) + 128);
-
-                r *= 1.1; g *= 1.1; b *= 1.1;
-
-                const saturation = 1.5;
+            case 'filter-summer': {
+                // Increase saturation and add a warm tone
+                const saturation = 1.4;
                 const avg = (r + g + b) / 3;
-                data[i] = truncate(avg + (r - avg) * saturation);
-                data[i + 1] = truncate(avg + (g - avg) * saturation);
-                data[i + 2] = truncate(avg + (b - avg) * saturation);
+                r = truncate(avg + (r - avg) * saturation);
+                g = truncate(avg + (g - avg) * saturation);
+                b = truncate(avg + (b - avg) * saturation);
+                // Add warmth
+                data[i] = truncate(r * 1.1);
+                data[i+1] = truncate(g * 1.05);
+                data[i+2] = truncate(b * 0.9);
                 break;
             }
         }
@@ -206,7 +201,7 @@ const captureButtonText = computed(() => {
     return 'Chụp ảnh';
 });
 
-// MODIFIED: This function now handles pixel manipulation for live preview
+// This function now handles pixel manipulation for the live preview
 const renderVideoToCanvas = () => {
   if (!isCameraOn.value || !videoRef.value || !previewCanvasRef.value || videoRef.value.paused || videoRef.value.ended) {
     return;
@@ -215,11 +210,14 @@ const renderVideoToCanvas = () => {
   const canvas = previewCanvasRef.value;
   const context = canvas.getContext('2d');
   
+  // Flip the video horizontally for a mirror effect
   context.translate(canvas.width, 0);
   context.scale(-1, 1);
   context.drawImage(video, 0, 0, canvas.width, canvas.height);
+  // Reset transformation
   context.setTransform(1, 0, 0, 1, 0, 0);
 
+  // Apply filter via pixel manipulation for the live preview
   if (activeFilter.value !== 'filter-none') {
       let imageData = context.getImageData(0, 0, canvas.width, canvas.height);
       imageData = applyFilterToImageData(imageData, activeFilter.value);
@@ -418,6 +416,7 @@ const startCamera = async () => {
       video.onplaying = () => {
         const canvas = previewCanvasRef.value;
         if (canvas) {
+          // Set canvas dimensions to match video to avoid distortion
           canvas.width = video.videoWidth;
           canvas.height = video.videoHeight;
         }
@@ -454,7 +453,7 @@ const retakePhoto = () => {
   }
 };
 
-// MODIFIED: This function now handles pixel manipulation for captured frames
+// This function now handles pixel manipulation for captured frames
 const captureFrame = () => {
   if (!videoRef.value || !canvasRef.value) return null;
   const video = videoRef.value;
@@ -466,7 +465,7 @@ const captureFrame = () => {
   const targetWidthStrip = 863;
   const targetHeightStrip = 649;
   
-  const currentCaptureWidth = activeFrameType.value === 'single' ? targetWidthSingle : targetHeightStrip;
+  const currentCaptureWidth = activeFrameType.value === 'single' ? targetWidthSingle : targetWidthStrip;
   const currentCaptureHeight = activeFrameType.value === 'single' ? targetHeightSingle : targetHeightStrip;
 
   canvas.width = currentCaptureWidth;
@@ -630,6 +629,7 @@ onUnmounted(() => {
 <template>
   <div class="starry-sky-bg relative flex flex-col items-center p-4 md:p-8 min-h-screen font-inter overflow-hidden">
     
+    <!-- Starry Background -->
     <div class="static-stars-container parallax-sm pointer-events-none">
       <div v-for="(star, index) in staticStarsSmall" :key="`ss-sm-${index}`" class="static-star star-sm" :style="star.style"></div>
     </div>
@@ -642,6 +642,7 @@ onUnmounted(() => {
     
     <div class="w-full max-w-7xl flex flex-col md:flex-row gap-8 pt-8 relative z-10">
       
+      <!-- Left Panel: Layout Selection -->
       <div class="w-full md:w-[280px] md:flex-shrink-0 flex flex-col">
         <div class="bg-white p-4 rounded-xl shadow-md">
           <h3 class="text-lg font-semibold text-sky-800 mb-3 text-center md:text-left">Chọn loại bố cục</h3>
@@ -705,6 +706,7 @@ onUnmounted(() => {
         </div>
       </div>
 
+      <!-- Right Panel: Camera View and Controls -->
       <div class="w-full md:flex-1">
         <div class="bg-white/60 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-sky-200">
           
@@ -747,6 +749,7 @@ onUnmounted(() => {
           
           <canvas ref="canvasRef" class="hidden"></canvas>
 
+          <!-- Filters -->
           <div v-if="isCameraOn && !isPhotoTaken" class="mb-6">
               <div class="flex space-x-4 overflow-x-auto pb-3 -mx-2 px-2">
                 <div v-for="filter in filters" :key="filter.class" @click="applyFilter(filter.class)" class="flex-shrink-0 cursor-pointer text-center group">
@@ -758,6 +761,7 @@ onUnmounted(() => {
               </div>
             </div>
           
+          <!-- Controls -->
           <div class="flex flex-col justify-center items-center gap-4">
         
             <div class="flex flex-wrap justify-center items-center gap-4">
@@ -828,6 +832,7 @@ onUnmounted(() => {
       </div>
     </div>
 
+    <!-- Cropping Modal -->
     <div v-if="isCropping" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
       <div class="bg-white p-6 rounded-lg shadow-xl max-w-2xl w-full">
         <h3 class="text-xl font-semibold mb-4">Cắt ảnh</h3>
@@ -841,6 +846,7 @@ onUnmounted(() => {
       </div>
     </div>
 
+    <!-- Hidden file input -->
     <input type="file" ref="fileInput" @change="onFileChange" accept="image/*" class="hidden">
   </div>
 </template>
@@ -848,7 +854,18 @@ onUnmounted(() => {
 <style scoped>
 @import 'https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css';
 
-/* REMOVED CSS FILTERS - These are now handled by JavaScript */
+/* These CSS filters are now only for the small preview images in the UI */
+.filter-beautify { 
+  filter: brightness(1.1) saturate(1.15);
+}
+.filter-none { filter: none; }
+.filter-grayscale { filter: grayscale(100%); }
+.filter-sepia { filter: sepia(100%); }
+.filter-contrast { filter: contrast(150%); }
+.filter-vintage { filter: sepia(65%) contrast(95%) brightness(90%) saturate(120%); }
+.filter-summer { filter: saturate(140%) brightness(110%) contrast(110%); }
+
+
 .overflow-x-auto::-webkit-scrollbar { 
   height: 6px; 
 }
