@@ -125,6 +125,8 @@ const imageToCrop = ref(null);
 let cropperInstance = null;
 
 const previewCanvasRef = ref(null);
+// NEW: Hidden canvas for performance optimization
+const processingCanvasRef = ref(null);
 let animationFrameId = null;
 
 const staticStarsSmall = ref([]);
@@ -184,27 +186,36 @@ const captureButtonText = computed(() => {
     return 'Chụp ảnh';
 });
 
+// UPDATED: Optimized render loop
 const renderVideoToCanvas = () => {
   if (!isCameraOn.value || !videoRef.value || !previewCanvasRef.value || videoRef.value.paused || videoRef.value.ended) {
     return;
   }
   const video = videoRef.value;
-  const canvas = previewCanvasRef.value;
-  const context = canvas.getContext('2d');
-  
-  context.translate(canvas.width, 0);
-  context.scale(-1, 1);
-  context.drawImage(video, 0, 0, canvas.width, canvas.height);
-  context.setTransform(1, 0, 0, 1, 0, 0);
+  const processingCanvas = processingCanvasRef.value;
+  const processingCtx = processingCanvas.getContext('2d');
+  const visibleCanvas = previewCanvasRef.value;
+  const visibleCtx = visibleCanvas.getContext('2d');
 
+  // Step 1: Draw video to the small, hidden processing canvas (flipped)
+  processingCtx.translate(processingCanvas.width, 0);
+  processingCtx.scale(-1, 1);
+  processingCtx.drawImage(video, 0, 0, processingCanvas.width, processingCanvas.height);
+  processingCtx.setTransform(1, 0, 0, 1, 0, 0);
+
+  // Step 2: Apply filter to the small canvas (much faster)
   if (activeFilter.value !== 'filter-none') {
-      let imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+      let imageData = processingCtx.getImageData(0, 0, processingCanvas.width, processingCanvas.height);
       imageData = applyFilterToImageData(imageData, activeFilter.value);
-      context.putImageData(imageData, 0, 0);
+      processingCtx.putImageData(imageData, 0, 0);
   }
+
+  // Step 3: Draw the small, filtered canvas onto the large, visible canvas
+  visibleCtx.drawImage(processingCanvas, 0, 0, visibleCanvas.width, visibleCanvas.height);
 
   animationFrameId = requestAnimationFrame(renderVideoToCanvas);
 };
+
 
 const generateReviewPreview = async () => {
     if (!areAllPhotosTaken.value) return;
@@ -454,10 +465,18 @@ const startCamera = async () => {
     if (video) {
       video.srcObject = stream;
       video.onplaying = () => {
-        const canvas = previewCanvasRef.value;
-        if (canvas) {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
+        // UPDATED: Set dimensions for both canvases
+        const visibleCanvas = previewCanvasRef.value;
+        const processingCanvas = processingCanvasRef.value;
+        if (visibleCanvas && processingCanvas) {
+            const aspectRatio = video.videoWidth / video.videoHeight;
+            // Set visible canvas size based on its container
+            visibleCanvas.width = visibleCanvas.clientWidth;
+            visibleCanvas.height = visibleCanvas.clientWidth / aspectRatio;
+
+            // Set processing canvas to a smaller, fixed size for performance
+            processingCanvas.width = 480;
+            processingCanvas.height = 480 / aspectRatio;
         }
         renderVideoToCanvas();
       };
@@ -482,7 +501,6 @@ const stopCamera = () => {
   stream = null;
 };
 
-// UPDATED: More robust retake logic
 const retakePhoto = () => {
   stopCamera();
   nextTick(() => {
@@ -796,6 +814,7 @@ onUnmounted(() => {
           </div>
 
           <canvas ref="canvasRef" class="hidden"></canvas>
+          <canvas ref="processingCanvasRef" class="hidden"></canvas>
 
           <!-- Filters (Only show during capture) -->
           <div v-if="isCameraOn && currentStep === 'capturing'" class="mb-6">
