@@ -30,7 +30,7 @@ const isDonateModalVisible = ref(false);
           
           <button @click="isDonateModalVisible = true" class="text-gray-700 hover:text-sky-600 transition-colors duration-300 font-medium text-base">Ủng hộ</button>
           
-          <a href="https://duxng.io.vn/" target="_blank" rel="noopener noreferrer" class="text-gray-700 hover:text-white hover:bg-sky-500 transition-colors duration-300 font-medium text-base border-2 border-sky-500 px-4 py-2 rounded-full">
+          <a href="https://www.facebook.com/profile.php?id=61578464544159" target="_blank" rel="noopener noreferrer" class="text-gray-700 hover:text-white hover:bg-sky-500 transition-colors duration-300 font-medium text-base border-2 border-sky-500 px-4 py-2 rounded-full">
             Liên hệ & góp ý
           </a>
         </div>
