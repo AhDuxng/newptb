@@ -38,7 +38,19 @@ const filters = ref([
   { name: 'Mùa hè', class: 'filter-summer' },
 ]);
 
-// --- Pixel manipulation filter functions ---
+// NEW: This computed property will now drive the live preview via CSS filters for maximum performance.
+const filterCssMap = computed(() => ({
+  'filter-none': 'none',
+  'filter-beautify': 'saturate(1.2) brightness(1.1)',
+  'filter-contrast': 'contrast(1.25)',
+  'filter-sepia': 'sepia(0.8)',
+  'filter-grayscale': 'grayscale(1)',
+  'filter-vintage': 'sepia(0.6) contrast(1.1) brightness(0.9)',
+  'filter-summer': 'saturate(1.5) contrast(1.1) hue-rotate(-10deg)',
+}));
+
+// --- Pixel manipulation filter functions (for final capture) ---
+// UPDATED: Adjusted values for more vibrant colors.
 const applyFilterToImageData = (imageData, filterClass) => {
     const data = imageData.data;
     const len = data.length;
@@ -63,7 +75,7 @@ const applyFilterToImageData = (imageData, filterClass) => {
                 break;
             }
             case 'filter-contrast': {
-                const amount = 1.5;
+                const amount = 1.4; // Slightly less harsh than before
                 const avg = (r + g + b) / 3;
                 data[i] = truncate((r - avg) * amount + avg);
                 data[i+1] = truncate((g - avg) * amount + avg);
@@ -71,7 +83,7 @@ const applyFilterToImageData = (imageData, filterClass) => {
                 break;
             }
             case 'filter-beautify': {
-                const brightness = 1.05, saturation = 1.1;
+                const brightness = 1.1; const saturation = 1.25;
                 r = truncate(r * brightness);
                 g = truncate(g * brightness);
                 b = truncate(b * brightness);
@@ -82,23 +94,28 @@ const applyFilterToImageData = (imageData, filterClass) => {
                 break;
             }
             case 'filter-vintage': {
+                // Apply sepia
                 let tr = 0.393 * r + 0.769 * g + 0.189 * b;
                 let tg = 0.349 * r + 0.686 * g + 0.168 * b;
                 let tb = 0.272 * r + 0.534 * g + 0.131 * b;
-                r = truncate(tr); g = truncate(tg); b = truncate(tb);
-                r *= 0.95; g *= 0.95; b *= 0.95;
+                // Add contrast and slight desaturation for a faded look
+                const contrast = 1.2;
+                r = truncate(tr * 0.8 + r * 0.2) * contrast;
+                g = truncate(tg * 0.8 + g * 0.2) * contrast;
+                b = truncate(tb * 0.8 + b * 0.2) * contrast;
                 data[i] = r; data[i+1] = g; data[i+2] = b;
                 break;
             }
             case 'filter-summer': {
-                const saturation = 1.4;
+                const saturation = 1.6;
                 const avg = (r + g + b) / 3;
                 r = truncate(avg + (r - avg) * saturation);
                 g = truncate(avg + (g - avg) * saturation);
                 b = truncate(avg + (b - avg) * saturation);
-                data[i] = truncate(r * 1.1);
-                data[i+1] = truncate(g * 1.05);
-                data[i+2] = truncate(b * 0.9);
+                // Add warmth
+                data[i] = truncate(r * 1.15);
+                data[i+1] = truncate(g * 1.1);
+                data[i+2] = truncate(b * 0.85);
                 break;
             }
         }
@@ -123,13 +140,6 @@ const isCropping = ref(false);
 const cropImageRef = ref(null);
 const imageToCrop = ref(null);
 let cropperInstance = null;
-
-const previewCanvasRef = ref(null);
-const processingCanvasRef = ref(null);
-let animationFrameId = null;
-
-let lastFilterTime = 0;
-const filterInterval = 100;
 
 const staticStarsSmall = ref([]);
 const staticStarsMedium = ref([]);
@@ -187,45 +197,6 @@ const captureButtonText = computed(() => {
     }
     return 'Chụp ảnh';
 });
-
-const renderVideoToCanvas = () => {
-  if (!isCameraOn.value || !videoRef.value || !previewCanvasRef.value || videoRef.value.paused || videoRef.value.ended) {
-    return;
-  }
-  const video = videoRef.value;
-  const processingCanvas = processingCanvasRef.value;
-  const processingCtx = processingCanvas.getContext('2d');
-  const visibleCanvas = previewCanvasRef.value;
-  const visibleCtx = visibleCanvas.getContext('2d');
-  const now = Date.now();
-
-  visibleCtx.save();
-  visibleCtx.translate(visibleCanvas.width, 0);
-  visibleCtx.scale(-1, 1);
-  visibleCtx.drawImage(video, 0, 0, visibleCanvas.width, visibleCanvas.height);
-  visibleCtx.restore();
-
-  if (activeFilter.value !== 'filter-none' && now - lastFilterTime > filterInterval) {
-    lastFilterTime = now;
-
-    processingCtx.save();
-    processingCtx.translate(processingCanvas.width, 0);
-    processingCtx.scale(-1, 1);
-    processingCtx.drawImage(video, 0, 0, processingCanvas.width, processingCanvas.height);
-    processingCtx.restore();
-    
-    let imageData = processingCtx.getImageData(0, 0, processingCanvas.width, processingCanvas.height);
-    imageData = applyFilterToImageData(imageData, activeFilter.value);
-    processingCtx.putImageData(imageData, 0, 0);
-  }
-
-  if (activeFilter.value !== 'filter-none') {
-    visibleCtx.drawImage(processingCanvas, 0, 0, visibleCanvas.width, visibleCanvas.height);
-  }
-
-  animationFrameId = requestAnimationFrame(renderVideoToCanvas);
-};
-
 
 const generateReviewPreview = async () => {
     if (!areAllPhotosTaken.value) return;
@@ -474,19 +445,6 @@ const startCamera = async () => {
     const video = videoRef.value;
     if (video) {
       video.srcObject = stream;
-      video.onplaying = () => {
-        const visibleCanvas = previewCanvasRef.value;
-        const processingCanvas = processingCanvasRef.value;
-        if (visibleCanvas && processingCanvas) {
-            const aspectRatio = video.videoWidth / video.videoHeight;
-            visibleCanvas.width = visibleCanvas.clientWidth;
-            visibleCanvas.height = visibleCanvas.clientWidth / aspectRatio;
-
-            processingCanvas.width = 320;
-            processingCanvas.height = 320 / aspectRatio;
-        }
-        renderVideoToCanvas();
-      };
       await video.play();
     }
   } catch (error) {
@@ -499,10 +457,6 @@ const startCamera = async () => {
 const stopCamera = () => {
   if (stream) {
     stream.getTracks().forEach(track => track.stop());
-  }
-  if (animationFrameId) {
-    cancelAnimationFrame(animationFrameId);
-    animationFrameId = null;
   }
   isCameraOn.value = false;
   stream = null;
@@ -561,11 +515,11 @@ const captureFrame = () => {
     sy = (videoHeight - sHeight) / 2;
   }
   
-  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.save();
   context.translate(canvas.width, 0);
   context.scale(-1, 1);
   context.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, currentCaptureWidth, currentCaptureHeight);
-  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.restore();
 
   if (activeFilter.value !== 'filter-none') {
       let imageData = context.getImageData(0, 0, canvas.width, canvas.height);
@@ -796,8 +750,14 @@ onUnmounted(() => {
 
             <!-- Capturing Step -->
             <template v-else-if="isCameraOn">
-                <video ref="videoRef" autoplay playsinline muted class="hidden"></video>
-                <canvas ref="previewCanvasRef" class="w-full h-full object-cover"></canvas>
+                <video 
+                    ref="videoRef" 
+                    autoplay 
+                    playsinline 
+                    muted 
+                    class="w-full h-full object-cover"
+                    :style="{ filter: filterCssMap[activeFilter], transform: 'scaleX(-1)' }"
+                ></video>
             </template>
 
             <!-- Camera Off -->
@@ -824,7 +784,6 @@ onUnmounted(() => {
           </div>
 
           <canvas ref="canvasRef" class="hidden"></canvas>
-          <canvas ref="processingCanvasRef" class="hidden"></canvas>
 
           <!-- Filters (Only show during capture) -->
           <div v-if="isCameraOn && currentStep === 'capturing'" class="mb-6">
@@ -942,14 +901,14 @@ onUnmounted(() => {
 
 /* These CSS filters are now only for the small preview images in the UI */
 .filter-beautify { 
-  filter: brightness(1.1) saturate(1.15);
+  filter: brightness(1.1) saturate(1.25);
 }
 .filter-none { filter: none; }
 .filter-grayscale { filter: grayscale(100%); }
-.filter-sepia { filter: sepia(100%); }
-.filter-contrast { filter: contrast(150%); }
-.filter-vintage { filter: sepia(65%) contrast(95%) brightness(90%) saturate(120%); }
-.filter-summer { filter: saturate(140%) brightness(110%) contrast(110%); }
+.filter-sepia { filter: sepia(80%); }
+.filter-contrast { filter: contrast(125%); }
+.filter-vintage { filter: sepia(60%) contrast(110%) brightness(90%) saturate(120%); }
+.filter-summer { filter: saturate(160%) brightness(110%) contrast(110%) hue-rotate(-10deg); }
 
 
 .overflow-x-auto::-webkit-scrollbar { 
