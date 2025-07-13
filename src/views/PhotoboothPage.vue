@@ -36,14 +36,96 @@ const filters = ref([
   { name: 'Mùa hè', class: 'filter-summer' },
 ]);
 
-const filterCssMap = {
-  'filter-none': 'none',
-  'filter-beautify': 'brightness(1.1) contrast(0.9) saturate(1.15)',
-  'filter-contrast': 'contrast(140%)',
-  'filter-sepia': 'sepia(100%)',
-  'filter-grayscale': 'grayscale(100%)',
-  'filter-vintage': 'sepia(65%) contrast(110%) brightness(90%) saturate(130%)',
-  'filter-summer': 'contrast(110%) brightness(110%) saturate(150%) hue-rotate(-10deg)',
+// --- NEW: Pixel manipulation filter functions ---
+const applyFilterToImageData = (imageData, filterClass) => {
+    const data = imageData.data;
+    const len = data.length;
+
+    const truncate = (val) => Math.min(255, Math.max(0, val));
+
+    for (let i = 0; i < len; i += 4) {
+        let r = data[i];
+        let g = data[i + 1];
+        let b = data[i + 2];
+
+        switch (filterClass) {
+            case 'filter-grayscale': {
+                const avg = 0.299 * r + 0.587 * g + 0.114 * b;
+                data[i] = avg;
+                data[i + 1] = avg;
+                data[i + 2] = avg;
+                break;
+            }
+            case 'filter-sepia': {
+                const tr = 0.393 * r + 0.769 * g + 0.189 * b;
+                const tg = 0.349 * r + 0.686 * g + 0.168 * b;
+                const tb = 0.272 * r + 0.534 * g + 0.131 * b;
+                data[i] = truncate(tr);
+                data[i + 1] = truncate(tg);
+                data[i + 2] = truncate(tb);
+                break;
+            }
+            case 'filter-contrast': {
+                const factor = (259 * (140 + 259)) / (255 * (259 - 140));
+                data[i] = truncate(factor * (r - 128) + 128);
+                data[i + 1] = truncate(factor * (g - 128) + 128);
+                data[i + 2] = truncate(factor * (b - 128) + 128);
+                break;
+            }
+            case 'filter-beautify': {
+                // Tăng độ sáng nhẹ và bão hòa
+                const brightness = 1.1;
+                const saturation = 1.15;
+                data[i] = truncate(r * brightness);
+                data[i + 1] = truncate(g * brightness);
+                data[i + 2] = truncate(b * brightness);
+                const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                data[i] = truncate(avg + (data[i] - avg) * saturation);
+                data[i + 1] = truncate(avg + (data[i + 1] - avg) * saturation);
+                data[i + 2] = truncate(avg + (data[i + 2] - avg) * saturation);
+                break;
+            }
+             case 'filter-vintage': { // sepia(65%) contrast(110%) brightness(90%) saturate(130%)
+                let tr = 0.393 * r + 0.769 * g + 0.189 * b;
+                let tg = 0.349 * r + 0.686 * g + 0.168 * b;
+                let tb = 0.272 * r + 0.534 * g + 0.131 * b;
+                r = truncate(tr * 0.65 + r * 0.35);
+                g = truncate(tg * 0.65 + g * 0.35);
+                b = truncate(tb * 0.65 + b * 0.35);
+
+                const contrast = 1.1;
+                const factor = (259 * (110 + 259)) / (255 * (259 - 110));
+                r = truncate(factor * (r - 128) + 128);
+                g = truncate(factor * (g - 128) + 128);
+                b = truncate(factor * (b - 128) + 128);
+
+                r *= 0.9; g *= 0.9; b *= 0.9;
+
+                const saturation = 1.3;
+                const avg = (r + g + b) / 3;
+                data[i] = truncate(avg + (r - avg) * saturation);
+                data[i + 1] = truncate(avg + (g - avg) * saturation);
+                data[i + 2] = truncate(avg + (b - avg) * saturation);
+                break;
+            }
+            case 'filter-summer': { // contrast(110%) brightness(110%) saturate(150%)
+                const factor = (259 * (110 + 259)) / (255 * (259 - 110));
+                r = truncate(factor * (r - 128) + 128);
+                g = truncate(factor * (g - 128) + 128);
+                b = truncate(factor * (b - 128) + 128);
+
+                r *= 1.1; g *= 1.1; b *= 1.1;
+
+                const saturation = 1.5;
+                const avg = (r + g + b) / 3;
+                data[i] = truncate(avg + (r - avg) * saturation);
+                data[i + 1] = truncate(avg + (g - avg) * saturation);
+                data[i + 2] = truncate(avg + (b - avg) * saturation);
+                break;
+            }
+        }
+    }
+    return imageData;
 };
 
 const captureTimeOptions = ref([3, 5, 10]);
@@ -58,7 +140,6 @@ let downloadTimer = null;
 let stream = null;
 let captureLoopTimeout = null;
 
-// --- Image Cropping State ---
 const fileInput = ref(null);
 const isCropping = ref(false);
 const cropImageRef = ref(null);
@@ -68,7 +149,6 @@ let cropperInstance = null;
 const previewCanvasRef = ref(null);
 let animationFrameId = null;
 
-// --- Starry Sky Effect ---
 const staticStarsSmall = ref([]);
 const staticStarsMedium = ref([]);
 const staticStarsLarge = ref([]);
@@ -98,7 +178,6 @@ const generateStaticStars = () => {
 };
 generateStaticStars();
 
-// --- Computed properties ---
 const maxPhotos = computed(() => {
   if (activeFrameType.value === 'strip') return 4;
   if (activeFrameType.value === 'grid_2x3') return 6;
@@ -127,26 +206,30 @@ const captureButtonText = computed(() => {
     return 'Chụp ảnh';
 });
 
+// MODIFIED: This function now handles pixel manipulation for live preview
 const renderVideoToCanvas = () => {
   if (!isCameraOn.value || !videoRef.value || !previewCanvasRef.value || videoRef.value.paused || videoRef.value.ended) {
     return;
   }
-
   const video = videoRef.value;
   const canvas = previewCanvasRef.value;
   const context = canvas.getContext('2d');
   
   context.translate(canvas.width, 0);
   context.scale(-1, 1);
-  
   context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
   context.setTransform(1, 0, 0, 1, 0, 0);
+
+  if (activeFilter.value !== 'filter-none') {
+      let imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+      imageData = applyFilterToImageData(imageData, activeFilter.value);
+      context.putImageData(imageData, 0, 0);
+  }
 
   animationFrameId = requestAnimationFrame(renderVideoToCanvas);
 };
 
-// --- Methods ---
+
 const updateStripCaptureStep = () => {
     const nextSlot = photosInStrip.value.findIndex(photo => !photo);
     stripCaptureStep.value = nextSlot === -1 ? maxPhotos.value : nextSlot;
@@ -371,6 +454,7 @@ const retakePhoto = () => {
   }
 };
 
+// MODIFIED: This function now handles pixel manipulation for captured frames
 const captureFrame = () => {
   if (!videoRef.value || !canvasRef.value) return null;
   const video = videoRef.value;
@@ -382,7 +466,7 @@ const captureFrame = () => {
   const targetWidthStrip = 863;
   const targetHeightStrip = 649;
   
-  const currentCaptureWidth = activeFrameType.value === 'single' ? targetWidthSingle : targetWidthStrip;
+  const currentCaptureWidth = activeFrameType.value === 'single' ? targetWidthSingle : targetHeightStrip;
   const currentCaptureHeight = activeFrameType.value === 'single' ? targetHeightSingle : targetHeightStrip;
 
   canvas.width = currentCaptureWidth;
@@ -407,13 +491,17 @@ const captureFrame = () => {
   }
   
   context.setTransform(1, 0, 0, 1, 0, 0);
-  context.filter = filterCssMap[activeFilter.value] || 'none';
   context.translate(canvas.width, 0);
   context.scale(-1, 1);
   context.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, currentCaptureWidth, currentCaptureHeight);
-  
   context.setTransform(1, 0, 0, 1, 0, 0);
-  context.filter = 'none';
+
+  // Apply filter via pixel manipulation
+  if (activeFilter.value !== 'filter-none') {
+      let imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+      imageData = applyFilterToImageData(imageData, activeFilter.value);
+      context.putImageData(imageData, 0, 0);
+  }
   
   return canvas.toDataURL('image/png');
 };
@@ -542,7 +630,6 @@ onUnmounted(() => {
 <template>
   <div class="starry-sky-bg relative flex flex-col items-center p-4 md:p-8 min-h-screen font-inter overflow-hidden">
     
-    <!-- Starry Background -->
     <div class="static-stars-container parallax-sm pointer-events-none">
       <div v-for="(star, index) in staticStarsSmall" :key="`ss-sm-${index}`" class="static-star star-sm" :style="star.style"></div>
     </div>
@@ -555,7 +642,6 @@ onUnmounted(() => {
     
     <div class="w-full max-w-7xl flex flex-col md:flex-row gap-8 pt-8 relative z-10">
       
-      <!-- Left Panel: Layout Selection -->
       <div class="w-full md:w-[280px] md:flex-shrink-0 flex flex-col">
         <div class="bg-white p-4 rounded-xl shadow-md">
           <h3 class="text-lg font-semibold text-sky-800 mb-3 text-center md:text-left">Chọn loại bố cục</h3>
@@ -619,7 +705,6 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- Right Panel: Camera View and Controls -->
       <div class="w-full md:flex-1">
         <div class="bg-white/60 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-sky-200">
           
@@ -638,11 +723,10 @@ onUnmounted(() => {
           <div v-else class="mb-6">
             <div class="flex flex-col md:flex-row gap-4">
                 <div class="relative w-full aspect-video bg-gray-900 rounded-lg overflow-hidden flex items-center justify-center shadow-inner" :class="{'md:w-full': activeFrameType === 'single', 'md:w-2/3': activeFrameType !== 'single'}">
-                    <video ref="videoRef" autoplay playsinline muted style="position: absolute; top: -9999px; left: -9999px; opacity: 0;"></video>
+                    <video ref="videoRef" autoplay playsinline muted class="hidden"></video>
                     <canvas 
                         ref="previewCanvasRef" 
-                        class="w-full h-full object-cover transition-all duration-300"
-                        :style="{ filter: filterCssMap[activeFilter] }"
+                        class="w-full h-full object-cover"
                     ></canvas>
                     <div v-if="countdown > 0" class="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-9xl font-bold z-20">{{ countdown }}</div>
                 </div>
@@ -663,7 +747,6 @@ onUnmounted(() => {
           
           <canvas ref="canvasRef" class="hidden"></canvas>
 
-          <!-- Filters -->
           <div v-if="isCameraOn && !isPhotoTaken" class="mb-6">
               <div class="flex space-x-4 overflow-x-auto pb-3 -mx-2 px-2">
                 <div v-for="filter in filters" :key="filter.class" @click="applyFilter(filter.class)" class="flex-shrink-0 cursor-pointer text-center group">
@@ -675,7 +758,6 @@ onUnmounted(() => {
               </div>
             </div>
           
-          <!-- Controls -->
           <div class="flex flex-col justify-center items-center gap-4">
         
             <div class="flex flex-wrap justify-center items-center gap-4">
@@ -746,7 +828,6 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- Cropping Modal -->
     <div v-if="isCropping" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
       <div class="bg-white p-6 rounded-lg shadow-xl max-w-2xl w-full">
         <h3 class="text-xl font-semibold mb-4">Cắt ảnh</h3>
@@ -760,7 +841,6 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- Hidden file input -->
     <input type="file" ref="fileInput" @change="onFileChange" accept="image/*" class="hidden">
   </div>
 </template>
@@ -768,16 +848,7 @@ onUnmounted(() => {
 <style scoped>
 @import 'https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css';
 
-.filter-beautify { 
-  filter: brightness(1.1) contrast(0.9) saturate(1.15);
-}
-.filter-none { filter: none; }
-.filter-grayscale { filter: grayscale(100%); }
-.filter-sepia { filter: sepia(100%); }
-.filter-contrast { filter: contrast(140%); }
-.filter-vintage { filter: sepia(65%) contrast(110%) brightness(90%) saturate(130%); }
-.filter-summer { filter: contrast(110%) brightness(110%) saturate(150%) hue-rotate(-10deg); }
-
+/* REMOVED CSS FILTERS - These are now handled by JavaScript */
 .overflow-x-auto::-webkit-scrollbar { 
   height: 6px; 
 }
