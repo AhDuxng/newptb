@@ -13,7 +13,6 @@ const currentStep = ref('capturing'); // Can be: 'capturing', 'reviewing', 'fina
 const photoData = ref(null);
 const errorMessage = ref('');
 
-// NEW: State for the review preview image
 const reviewPreviewData = ref(null);
 
 const isUploading = ref(false);
@@ -207,7 +206,6 @@ const renderVideoToCanvas = () => {
   animationFrameId = requestAnimationFrame(renderVideoToCanvas);
 };
 
-// NEW: Generates a composite image for the review step
 const generateReviewPreview = async () => {
     if (!areAllPhotosTaken.value) return;
 
@@ -226,7 +224,7 @@ const generateReviewPreview = async () => {
     if (activeFrameType.value === 'strip') {
         tempCanvas.width = stripImgWidth;
         tempCanvas.height = (stripImgHeight * 4) + (BORDER_WIDTH * 3);
-        tempCtx.fillStyle = '#4b5563'; // gray-600 for contrast
+        tempCtx.fillStyle = '#4b5563';
         tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
 
         for (let i = 0; i < 4; i++) {
@@ -269,7 +267,6 @@ const deletePhoto = (index) => {
     if (index >= 0 && index < photosInStrip.value.length) {
         photosInStrip.value[index] = undefined;
         updateStripCaptureStep();
-        // If deleting a photo during review, go back to capturing
         if (currentStep.value === 'reviewing') {
             currentStep.value = 'capturing';
             reviewPreviewData.value = null;
@@ -281,7 +278,7 @@ const selectFrame = (type) => {
   activeFrameType.value = type;
   currentStep.value = 'capturing';
   photoData.value = null;
-  reviewPreviewData.value = null; // Clear review preview
+  reviewPreviewData.value = null;
   
   if (type === 'strip' || type === 'grid_2x3') {
     photosInStrip.value = new Array(maxPhotos.value).fill(undefined);
@@ -318,9 +315,9 @@ const uploadToImgBB = async () => {
   }
 };
 
-const proceedToFinalize = () => {
+const proceedToFinalize = async () => {
+  await generateFinalImage(frameColor.value);
   currentStep.value = 'finalizing';
-  generateFinalImage(frameColor.value);
 };
 
 
@@ -485,15 +482,23 @@ const stopCamera = () => {
   stream = null;
 };
 
+// UPDATED: More robust retake logic
 const retakePhoto = () => {
-  currentStep.value = 'capturing';
-  photoData.value = null;
-  reviewPreviewData.value = null; // Clear review preview
-  selectFrame(activeFrameType.value); 
-  
-  if (!isCameraOn.value) {
+  stopCamera();
+  nextTick(() => {
+    currentStep.value = 'capturing';
+    photoData.value = null;
+    reviewPreviewData.value = null;
+    
+    if (activeFrameType.value === 'strip' || activeFrameType.value === 'grid_2x3') {
+      photosInStrip.value = new Array(maxPhotos.value).fill(undefined);
+    } else {
+      photosInStrip.value = [];
+    }
+    updateStripCaptureStep();
+    
     startCamera();
-  }
+  });
 };
 
 const captureFrame = () => {
@@ -573,7 +578,7 @@ const runCaptureCycle = () => {
             
             if (areAllPhotosTaken.value) {
                 currentStep.value = 'reviewing';
-                generateReviewPreview(); // Generate preview for the review screen
+                generateReviewPreview();
             } else if (isContinuousShooting.value) {
                 captureLoopTimeout = setTimeout(runCaptureCycle, 1000);
             }
