@@ -125,7 +125,12 @@ const imageToCrop = ref(null);
 let cropperInstance = null;
 
 const previewCanvasRef = ref(null);
+const processingCanvasRef = ref(null);
 let animationFrameId = null;
+
+// NEW: Throttling variables for performance
+let lastFilterTime = 0;
+const filterInterval = 100; // 100ms = 10 frames per second
 
 const staticStarsSmall = ref([]);
 const staticStarsMedium = ref([]);
@@ -184,27 +189,50 @@ const captureButtonText = computed(() => {
     return 'Chụp ảnh';
 });
 
+// UPDATED: Optimized render loop with throttling
 const renderVideoToCanvas = () => {
   if (!isCameraOn.value || !videoRef.value || !previewCanvasRef.value || videoRef.value.paused || videoRef.value.ended) {
     return;
   }
   const video = videoRef.value;
-  const canvas = previewCanvasRef.value;
-  const context = canvas.getContext('2d');
-  
-  context.translate(canvas.width, 0);
-  context.scale(-1, 1);
-  context.drawImage(video, 0, 0, canvas.width, canvas.height);
-  context.setTransform(1, 0, 0, 1, 0, 0);
+  const processingCanvas = processingCanvasRef.value;
+  const processingCtx = processingCanvas.getContext('2d');
+  const visibleCanvas = previewCanvasRef.value;
+  const visibleCtx = visibleCanvas.getContext('2d');
+  const now = Date.now();
 
+  // Always draw the raw video to the visible canvas for smooth motion
+  visibleCtx.save();
+  visibleCtx.translate(visibleCanvas.width, 0);
+  visibleCtx.scale(-1, 1);
+  visibleCtx.drawImage(video, 0, 0, visibleCanvas.width, visibleCanvas.height);
+  visibleCtx.restore();
+
+  // Only process and draw the filter overlay at a throttled rate
+  if (activeFilter.value !== 'filter-none' && now - lastFilterTime > filterInterval) {
+    lastFilterTime = now;
+
+    // Draw video to the small processing canvas
+    processingCtx.save();
+    processingCtx.translate(processingCanvas.width, 0);
+    processingCtx.scale(-1, 1);
+    processingCtx.drawImage(video, 0, 0, processingCanvas.width, processingCanvas.height);
+    processingCtx.restore();
+    
+    // Apply filter to the small canvas
+    let imageData = processingCtx.getImageData(0, 0, processingCanvas.width, processingCanvas.height);
+    imageData = applyFilterToImageData(imageData, activeFilter.value);
+    processingCtx.putImageData(imageData, 0, 0);
+  }
+
+  // If a filter is active, draw the (possibly stale) filtered image on top
   if (activeFilter.value !== 'filter-none') {
-      let imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-      imageData = applyFilterToImageData(imageData, activeFilter.value);
-      context.putImageData(imageData, 0, 0);
+    visibleCtx.drawImage(processingCanvas, 0, 0, visibleCanvas.width, visibleCanvas.height);
   }
 
   animationFrameId = requestAnimationFrame(renderVideoToCanvas);
 };
+
 
 const generateReviewPreview = async () => {
     if (!areAllPhotosTaken.value) return;
@@ -454,10 +482,16 @@ const startCamera = async () => {
     if (video) {
       video.srcObject = stream;
       video.onplaying = () => {
-        const canvas = previewCanvasRef.value;
-        if (canvas) {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
+        const visibleCanvas = previewCanvasRef.value;
+        const processingCanvas = processingCanvasRef.value;
+        if (visibleCanvas && processingCanvas) {
+            const aspectRatio = video.videoWidth / video.videoHeight;
+            visibleCanvas.width = visibleCanvas.clientWidth;
+            visibleCanvas.height = visibleCanvas.clientWidth / aspectRatio;
+
+            // UPDATED: Further reduced processing canvas size for performance
+            processingCanvas.width = 320;
+            processingCanvas.height = 320 / aspectRatio;
         }
         renderVideoToCanvas();
       };
@@ -482,7 +516,6 @@ const stopCamera = () => {
   stream = null;
 };
 
-// UPDATED: More robust retake logic
 const retakePhoto = () => {
   stopCamera();
   nextTick(() => {
@@ -796,6 +829,7 @@ onUnmounted(() => {
           </div>
 
           <canvas ref="canvasRef" class="hidden"></canvas>
+          <canvas ref="processingCanvasRef" class="hidden"></canvas>
 
           <!-- Filters (Only show during capture) -->
           <div v-if="isCameraOn && currentStep === 'capturing'" class="mb-6">
