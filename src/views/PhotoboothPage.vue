@@ -9,10 +9,12 @@ import Cropper from 'cropperjs';
 const videoRef = ref(null);
 const canvasRef = ref(null);
 const isCameraOn = ref(false);
-// NEW: State to manage the UI flow. Replaces the old `isPhotoTaken` boolean.
 const currentStep = ref('capturing'); // Can be: 'capturing', 'reviewing', 'finalizing'
 const photoData = ref(null);
 const errorMessage = ref('');
+
+// NEW: State for the review preview image
+const reviewPreviewData = ref(null);
 
 const isUploading = ref(false);
 const uploadedImageUrl = ref(null);
@@ -38,27 +40,18 @@ const filters = ref([
 ]);
 
 // --- Pixel manipulation filter functions ---
-// This is the core of the fix for iOS compatibility.
-// Instead of relying on CSS/Canvas filters, we manipulate pixels directly.
 const applyFilterToImageData = (imageData, filterClass) => {
     const data = imageData.data;
     const len = data.length;
-
-    // Helper function to ensure color values stay within the 0-255 range
     const truncate = (val) => Math.min(255, Math.max(0, val));
 
-    // Iterate over each pixel (which is 4 values in the array: R, G, B, A)
     for (let i = 0; i < len; i += 4) {
-        let r = data[i];
-        let g = data[i + 1];
-        let b = data[i + 2];
+        let r = data[i], g = data[i + 1], b = data[i + 2];
 
         switch (filterClass) {
             case 'filter-grayscale': {
                 const avg = 0.299 * r + 0.587 * g + 0.114 * b;
-                data[i] = avg;
-                data[i + 1] = avg;
-                data[i + 2] = avg;
+                data[i] = data[i + 1] = data[i + 2] = avg;
                 break;
             }
             case 'filter-sepia': {
@@ -71,7 +64,7 @@ const applyFilterToImageData = (imageData, filterClass) => {
                 break;
             }
             case 'filter-contrast': {
-                const amount = 1.5; // Contrast amount (1.0 = no change)
+                const amount = 1.5;
                 const avg = (r + g + b) / 3;
                 data[i] = truncate((r - avg) * amount + avg);
                 data[i+1] = truncate((g - avg) * amount + avg);
@@ -79,9 +72,7 @@ const applyFilterToImageData = (imageData, filterClass) => {
                 break;
             }
             case 'filter-beautify': {
-                // A simple beautify effect: slight brightness and saturation boost
-                const brightness = 1.05;
-                const saturation = 1.1;
+                const brightness = 1.05, saturation = 1.1;
                 r = truncate(r * brightness);
                 g = truncate(g * brightness);
                 b = truncate(b * brightness);
@@ -92,28 +83,20 @@ const applyFilterToImageData = (imageData, filterClass) => {
                 break;
             }
             case 'filter-vintage': {
-                // Apply sepia first
                 let tr = 0.393 * r + 0.769 * g + 0.189 * b;
                 let tg = 0.349 * r + 0.686 * g + 0.168 * b;
                 let tb = 0.272 * r + 0.534 * g + 0.131 * b;
-                r = truncate(tr);
-                g = truncate(tg);
-                b = truncate(tb);
-                // Then reduce brightness slightly
-                r *= 0.95;
-                g *= 0.95;
-                b *= 0.95;
+                r = truncate(tr); g = truncate(tg); b = truncate(tb);
+                r *= 0.95; g *= 0.95; b *= 0.95;
                 data[i] = r; data[i+1] = g; data[i+2] = b;
                 break;
             }
             case 'filter-summer': {
-                // Increase saturation and add a warm tone
                 const saturation = 1.4;
                 const avg = (r + g + b) / 3;
                 r = truncate(avg + (r - avg) * saturation);
                 g = truncate(avg + (g - avg) * saturation);
                 b = truncate(avg + (b - avg) * saturation);
-                // Add warmth
                 data[i] = truncate(r * 1.1);
                 data[i+1] = truncate(g * 1.05);
                 data[i+2] = truncate(b * 0.9);
@@ -202,7 +185,6 @@ const captureButtonText = computed(() => {
     return 'Chụp ảnh';
 });
 
-// This function now handles pixel manipulation for the live preview
 const renderVideoToCanvas = () => {
   if (!isCameraOn.value || !videoRef.value || !previewCanvasRef.value || videoRef.value.paused || videoRef.value.ended) {
     return;
@@ -211,14 +193,11 @@ const renderVideoToCanvas = () => {
   const canvas = previewCanvasRef.value;
   const context = canvas.getContext('2d');
   
-  // Flip the video horizontally for a mirror effect
   context.translate(canvas.width, 0);
   context.scale(-1, 1);
   context.drawImage(video, 0, 0, canvas.width, canvas.height);
-  // Reset transformation
   context.setTransform(1, 0, 0, 1, 0, 0);
 
-  // Apply filter via pixel manipulation for the live preview
   if (activeFilter.value !== 'filter-none') {
       let imageData = context.getImageData(0, 0, canvas.width, canvas.height);
       imageData = applyFilterToImageData(imageData, activeFilter.value);
@@ -226,6 +205,58 @@ const renderVideoToCanvas = () => {
   }
 
   animationFrameId = requestAnimationFrame(renderVideoToCanvas);
+};
+
+// NEW: Generates a composite image for the review step
+const generateReviewPreview = async () => {
+    if (!areAllPhotosTaken.value) return;
+
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+
+    if (activeFrameType.value === 'single') {
+        reviewPreviewData.value = photosInStrip.value[0];
+        return;
+    }
+
+    const stripImgWidth = 863;
+    const stripImgHeight = 649;
+    const BORDER_WIDTH = 20;
+
+    if (activeFrameType.value === 'strip') {
+        tempCanvas.width = stripImgWidth;
+        tempCanvas.height = (stripImgHeight * 4) + (BORDER_WIDTH * 3);
+        tempCtx.fillStyle = '#4b5563'; // gray-600 for contrast
+        tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+        for (let i = 0; i < 4; i++) {
+            if (!photosInStrip.value[i]) continue;
+            const img = new Image();
+            img.src = photosInStrip.value[i];
+            await new Promise(r => img.onload = r);
+            const yPos = i * (stripImgHeight + BORDER_WIDTH);
+            tempCtx.drawImage(img, 0, yPos, stripImgWidth, stripImgHeight);
+        }
+    } else if (activeFrameType.value === 'grid_2x3') {
+        tempCanvas.width = (stripImgWidth * 2) + BORDER_WIDTH;
+        tempCanvas.height = (stripImgHeight * 3) + (BORDER_WIDTH * 2);
+        tempCtx.fillStyle = '#4b5563';
+        tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+        for (let i = 0; i < 6; i++) {
+            if (!photosInStrip.value[i]) continue;
+            const img = new Image();
+            img.src = photosInStrip.value[i];
+            await new Promise(r => img.onload = r);
+            const col = i % 2;
+            const row = Math.floor(i / 2);
+            const xPos = col * (stripImgWidth + BORDER_WIDTH);
+            const yPos = row * (stripImgHeight + BORDER_WIDTH);
+            tempCtx.drawImage(img, xPos, yPos, stripImgWidth, stripImgHeight);
+        }
+    }
+    
+    reviewPreviewData.value = tempCanvas.toDataURL('image/png');
 };
 
 
@@ -238,13 +269,19 @@ const deletePhoto = (index) => {
     if (index >= 0 && index < photosInStrip.value.length) {
         photosInStrip.value[index] = undefined;
         updateStripCaptureStep();
+        // If deleting a photo during review, go back to capturing
+        if (currentStep.value === 'reviewing') {
+            currentStep.value = 'capturing';
+            reviewPreviewData.value = null;
+        }
     }
 };
 
 const selectFrame = (type) => {
   activeFrameType.value = type;
-  currentStep.value = 'capturing'; // Reset step on layout change
+  currentStep.value = 'capturing';
   photoData.value = null;
+  reviewPreviewData.value = null; // Clear review preview
   
   if (type === 'strip' || type === 'grid_2x3') {
     photosInStrip.value = new Array(maxPhotos.value).fill(undefined);
@@ -281,7 +318,6 @@ const uploadToImgBB = async () => {
   }
 };
 
-// NEW: Function to proceed to the final editing step
 const proceedToFinalize = () => {
   currentStep.value = 'finalizing';
   generateFinalImage(frameColor.value);
@@ -384,7 +420,7 @@ const generateFinalImage = async (backgroundColor) => {
   }
 
   photoData.value = canvas.toDataURL('image/png');
-  stopCamera(); // Stop the camera feed when the final image is generated
+  stopCamera();
   uploadToImgBB();
 
   isDownloadReady.value = false;
@@ -399,7 +435,6 @@ const generateFinalImage = async (backgroundColor) => {
   }, 1000);
 };
 
-// Watcher only runs when in the final step
 watch([frameColor, selectedOverlayFrame], () => {
   if (currentStep.value === 'finalizing') {
     generateFinalImage(frameColor.value);
@@ -424,7 +459,6 @@ const startCamera = async () => {
       video.onplaying = () => {
         const canvas = previewCanvasRef.value;
         if (canvas) {
-          // Set canvas dimensions to match video to avoid distortion
           canvas.width = video.videoWidth;
           canvas.height = video.videoHeight;
         }
@@ -451,10 +485,10 @@ const stopCamera = () => {
   stream = null;
 };
 
-// `retakePhoto` now resets the step
 const retakePhoto = () => {
   currentStep.value = 'capturing';
   photoData.value = null;
+  reviewPreviewData.value = null; // Clear review preview
   selectFrame(activeFrameType.value); 
   
   if (!isCameraOn.value) {
@@ -462,7 +496,6 @@ const retakePhoto = () => {
   }
 };
 
-// This function now handles pixel manipulation for captured frames
 const captureFrame = () => {
   if (!videoRef.value || !canvasRef.value) return null;
   const video = videoRef.value;
@@ -504,7 +537,6 @@ const captureFrame = () => {
   context.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, currentCaptureWidth, currentCaptureHeight);
   context.setTransform(1, 0, 0, 1, 0, 0);
 
-  // Apply filter via pixel manipulation
   if (activeFilter.value !== 'filter-none') {
       let imageData = context.getImageData(0, 0, canvas.width, canvas.height);
       imageData = applyFilterToImageData(imageData, activeFilter.value);
@@ -514,7 +546,6 @@ const captureFrame = () => {
   return canvas.toDataURL('image/png');
 };
 
-// `runCaptureCycle` now transitions to the 'reviewing' step
 const runCaptureCycle = () => {
     if (isCapturing.value || !isCameraOn.value || areAllPhotosTaken.value) return;
     
@@ -541,7 +572,8 @@ const runCaptureCycle = () => {
             isCapturing.value = false;
             
             if (areAllPhotosTaken.value) {
-                currentStep.value = 'reviewing'; // Go to review step
+                currentStep.value = 'reviewing';
+                generateReviewPreview(); // Generate preview for the review screen
             } else if (isContinuousShooting.value) {
                 captureLoopTimeout = setTimeout(runCaptureCycle, 1000);
             }
@@ -620,6 +652,7 @@ const confirmCrop = () => {
     isCropping.value = false;
     if (areAllPhotosTaken.value) {
         currentStep.value = 'reviewing';
+        generateReviewPreview();
     }
 };
 
@@ -720,46 +753,43 @@ onUnmounted(() => {
       <div class="w-full md:flex-1">
         <div class="bg-white/60 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-sky-200">
           
-          <!-- Final Image Display -->
-          <div v-if="currentStep === 'finalizing'" class="relative w-full aspect-video bg-gray-200 rounded-lg overflow-hidden flex items-center justify-center mb-6 shadow-inner mx-auto">
-             <img :src="photoData" alt="Ảnh đã hoàn thành" class="w-full h-full object-contain bg-transparent">
-          </div>
+          <!-- Main Display Area -->
+          <div class="relative w-full aspect-video bg-gray-900 rounded-lg overflow-hidden flex items-center justify-center mb-6 shadow-inner mx-auto">
+            <!-- Finalizing Step -->
+            <img v-if="currentStep === 'finalizing'" :src="photoData" alt="Ảnh đã hoàn thành" class="w-full h-full object-contain bg-transparent">
+            
+            <!-- Reviewing Step -->
+            <img v-else-if="currentStep === 'reviewing'" :src="reviewPreviewData" alt="Xem lại ảnh" class="w-full h-full object-contain bg-gray-900">
 
-          <!-- Camera Off Display -->
-          <div v-else-if="!isCameraOn" class="relative w-full aspect-video bg-gray-900 rounded-lg overflow-hidden flex items-center justify-center mb-6 shadow-inner mx-auto">
-            <div class="h-full flex flex-col items-center justify-center text-center text-white p-4">
+            <!-- Capturing Step -->
+            <template v-else-if="isCameraOn">
+                <video ref="videoRef" autoplay playsinline muted class="hidden"></video>
+                <canvas ref="previewCanvasRef" class="w-full h-full object-cover"></canvas>
+            </template>
+
+            <!-- Camera Off -->
+            <div v-else class="h-full flex flex-col items-center justify-center text-center text-white p-4">
               <svg class="w-16 h-16 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
               <p class="mt-2 font-medium">Camera đang tắt</p>
               <p class="text-sm text-gray-300">Nhấn "Bật Camera" để bắt đầu</p>
             </div>
+
+            <div v-if="countdown > 0" class="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-9xl font-bold z-20">{{ countdown }}</div>
           </div>
           
-          <!-- Capturing / Reviewing Display -->
-          <div v-else class="mb-6">
-            <div class="flex flex-col md:flex-row gap-4">
-                <div class="relative w-full aspect-video bg-gray-900 rounded-lg overflow-hidden flex items-center justify-center shadow-inner" :class="{'md:w-full': activeFrameType === 'single', 'md:w-2/3': activeFrameType !== 'single'}">
-                    <video ref="videoRef" autoplay playsinline muted class="hidden"></video>
-                    <canvas 
-                        ref="previewCanvasRef" 
-                        class="w-full h-full object-cover"
-                    ></canvas>
-                    <div v-if="countdown > 0" class="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-9xl font-bold z-20">{{ countdown }}</div>
-                </div>
-
-                <div v-if="activeFrameType !== 'single'" class="w-full md:w-1/3">
-                    <div class="grid gap-2 grid-cols-2">
-                        <div v-for="i in maxPhotos" :key="i" class="relative aspect-square bg-gray-200 rounded-md flex items-center justify-center" :class="{'ring-2 ring-pink-500 ring-inset': currentStep === 'capturing' && stripCaptureStep === i - 1}">
-                            <img v-if="photosInStrip[i-1]" :src="photosInStrip[i-1]" class="w-full h-full object-cover rounded-md">
-                            <span v-else class="text-gray-400 font-bold text-2xl">{{ i }}</span>
-                             <button v-if="photosInStrip[i-1] && currentStep !== 'finalizing'" @click.stop="deletePhoto(i-1)" class="delete-photo-btn">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
-                        </div>
-                    </div>
+          <!-- Thumbnails for Strip/Grid -->
+          <div v-if="activeFrameType !== 'single' && currentStep !== 'finalizing'" class="mb-6">
+            <div class="grid gap-2 grid-cols-4 md:grid-cols-6">
+                <div v-for="i in maxPhotos" :key="i" class="relative aspect-square bg-gray-200 rounded-md flex items-center justify-center" :class="{'ring-2 ring-pink-500 ring-inset': currentStep === 'capturing' && stripCaptureStep === i - 1}">
+                    <img v-if="photosInStrip[i-1]" :src="photosInStrip[i-1]" class="w-full h-full object-cover rounded-md">
+                    <span v-else class="text-gray-400 font-bold text-2xl">{{ i }}</span>
+                     <button v-if="photosInStrip[i-1]" @click.stop="deletePhoto(i-1)" class="delete-photo-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
                 </div>
             </div>
           </div>
-          
+
           <canvas ref="canvasRef" class="hidden"></canvas>
 
           <!-- Filters (Only show during capture) -->
