@@ -3,7 +3,14 @@
   publish = "dist"
   functions = "netlify/functions"
 
+# Quy tắc cho API functions của bạn
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
   status = 200
+
+# Quy tắc mới cho trang lỗi 404
+[[redirects]]
+  from = "/*"
+  to = "/404.html"
+  status = 404
