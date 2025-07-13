@@ -23,7 +23,6 @@ export const availableFrames = ref({
     '/frames/strip/locketstrip.png',
     '/frames/strip/3cogaistrip.png',
     '/frames/strip/thohongstrip.png',
-    '/frames/strip/quadaustrip.png',
     '/frames/strip/snoopystrip.png',
   ],
   grid_2x3: [

@@ -125,12 +125,9 @@ const imageToCrop = ref(null);
 let cropperInstance = null;
 
 const previewCanvasRef = ref(null);
+// NEW: Hidden canvas for performance optimization
 const processingCanvasRef = ref(null);
 let animationFrameId = null;
-
-// NEW: Throttling variables for performance
-let lastFilterTime = 0;
-const filterInterval = 100; // 100ms = 10 frames per second
 
 const staticStarsSmall = ref([]);
 const staticStarsMedium = ref([]);
@@ -189,7 +186,7 @@ const captureButtonText = computed(() => {
     return 'Chụp ảnh';
 });
 
-// UPDATED: Optimized render loop with throttling
+// UPDATED: Optimized render loop
 const renderVideoToCanvas = () => {
   if (!isCameraOn.value || !videoRef.value || !previewCanvasRef.value || videoRef.value.paused || videoRef.value.ended) {
     return;
@@ -199,36 +196,22 @@ const renderVideoToCanvas = () => {
   const processingCtx = processingCanvas.getContext('2d');
   const visibleCanvas = previewCanvasRef.value;
   const visibleCtx = visibleCanvas.getContext('2d');
-  const now = Date.now();
 
-  // Always draw the raw video to the visible canvas for smooth motion
-  visibleCtx.save();
-  visibleCtx.translate(visibleCanvas.width, 0);
-  visibleCtx.scale(-1, 1);
-  visibleCtx.drawImage(video, 0, 0, visibleCanvas.width, visibleCanvas.height);
-  visibleCtx.restore();
+  // Step 1: Draw video to the small, hidden processing canvas (flipped)
+  processingCtx.translate(processingCanvas.width, 0);
+  processingCtx.scale(-1, 1);
+  processingCtx.drawImage(video, 0, 0, processingCanvas.width, processingCanvas.height);
+  processingCtx.setTransform(1, 0, 0, 1, 0, 0);
 
-  // Only process and draw the filter overlay at a throttled rate
-  if (activeFilter.value !== 'filter-none' && now - lastFilterTime > filterInterval) {
-    lastFilterTime = now;
-
-    // Draw video to the small processing canvas
-    processingCtx.save();
-    processingCtx.translate(processingCanvas.width, 0);
-    processingCtx.scale(-1, 1);
-    processingCtx.drawImage(video, 0, 0, processingCanvas.width, processingCanvas.height);
-    processingCtx.restore();
-    
-    // Apply filter to the small canvas
-    let imageData = processingCtx.getImageData(0, 0, processingCanvas.width, processingCanvas.height);
-    imageData = applyFilterToImageData(imageData, activeFilter.value);
-    processingCtx.putImageData(imageData, 0, 0);
-  }
-
-  // If a filter is active, draw the (possibly stale) filtered image on top
+  // Step 2: Apply filter to the small canvas (much faster)
   if (activeFilter.value !== 'filter-none') {
-    visibleCtx.drawImage(processingCanvas, 0, 0, visibleCanvas.width, visibleCanvas.height);
+      let imageData = processingCtx.getImageData(0, 0, processingCanvas.width, processingCanvas.height);
+      imageData = applyFilterToImageData(imageData, activeFilter.value);
+      processingCtx.putImageData(imageData, 0, 0);
   }
+
+  // Step 3: Draw the small, filtered canvas onto the large, visible canvas
+  visibleCtx.drawImage(processingCanvas, 0, 0, visibleCanvas.width, visibleCanvas.height);
 
   animationFrameId = requestAnimationFrame(renderVideoToCanvas);
 };
@@ -482,16 +465,18 @@ const startCamera = async () => {
     if (video) {
       video.srcObject = stream;
       video.onplaying = () => {
+        // UPDATED: Set dimensions for both canvases
         const visibleCanvas = previewCanvasRef.value;
         const processingCanvas = processingCanvasRef.value;
         if (visibleCanvas && processingCanvas) {
             const aspectRatio = video.videoWidth / video.videoHeight;
+            // Set visible canvas size based on its container
             visibleCanvas.width = visibleCanvas.clientWidth;
             visibleCanvas.height = visibleCanvas.clientWidth / aspectRatio;
 
-            // UPDATED: Further reduced processing canvas size for performance
-            processingCanvas.width = 320;
-            processingCanvas.height = 320 / aspectRatio;
+            // Set processing canvas to a smaller, fixed size for performance
+            processingCanvas.width = 480;
+            processingCanvas.height = 480 / aspectRatio;
         }
         renderVideoToCanvas();
       };
