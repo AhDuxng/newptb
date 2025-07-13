@@ -38,7 +38,7 @@ const filters = ref([
   { name: 'Mùa hè', class: 'filter-summer' },
 ]);
 
-// This computed property will now drive the live preview via CSS filters for maximum performance.
+// NEW: This computed property will now drive the live preview via CSS filters for maximum performance.
 const filterCssMap = computed(() => ({
   'filter-none': 'none',
   'filter-beautify': 'saturate(1.2) brightness(1.1)',
@@ -50,6 +50,7 @@ const filterCssMap = computed(() => ({
 }));
 
 // --- Pixel manipulation filter functions (for final capture) ---
+// UPDATED: Adjusted values for more vibrant colors.
 const applyFilterToImageData = (imageData, filterClass) => {
     const data = imageData.data;
     const len = data.length;
@@ -74,7 +75,7 @@ const applyFilterToImageData = (imageData, filterClass) => {
                 break;
             }
             case 'filter-contrast': {
-                const amount = 1.4;
+                const amount = 1.4; // Slightly less harsh than before
                 const avg = (r + g + b) / 3;
                 data[i] = truncate((r - avg) * amount + avg);
                 data[i+1] = truncate((g - avg) * amount + avg);
@@ -93,9 +94,11 @@ const applyFilterToImageData = (imageData, filterClass) => {
                 break;
             }
             case 'filter-vintage': {
+                // Apply sepia
                 let tr = 0.393 * r + 0.769 * g + 0.189 * b;
                 let tg = 0.349 * r + 0.686 * g + 0.168 * b;
                 let tb = 0.272 * r + 0.534 * g + 0.131 * b;
+                // Add contrast and slight desaturation for a faded look
                 const contrast = 1.2;
                 r = truncate(tr * 0.8 + r * 0.2) * contrast;
                 g = truncate(tg * 0.8 + g * 0.2) * contrast;
@@ -109,6 +112,7 @@ const applyFilterToImageData = (imageData, filterClass) => {
                 r = truncate(avg + (r - avg) * saturation);
                 g = truncate(avg + (g - avg) * saturation);
                 b = truncate(avg + (b - avg) * saturation);
+                // Add warmth
                 data[i] = truncate(r * 1.15);
                 data[i+1] = truncate(g * 1.1);
                 data[i+2] = truncate(b * 0.85);
@@ -652,6 +656,7 @@ onUnmounted(() => {
 <template>
   <div class="starry-sky-bg relative flex flex-col items-center p-4 md:p-8 min-h-screen font-inter overflow-hidden">
     
+    <!-- Starry Background -->
     <div class="static-stars-container parallax-sm pointer-events-none">
       <div v-for="(star, index) in staticStarsSmall" :key="`ss-sm-${index}`" class="static-star star-sm" :style="star.style"></div>
     </div>
@@ -662,77 +667,112 @@ onUnmounted(() => {
       <div v-for="(star, index) in staticStarsLarge" :key="`ss-lg-${index}`" class="static-star star-lg" :style="star.style"></div>
     </div>
     
-    <div class="w-full max-w-7xl flex flex-col md:flex-row gap-8 pt-4 md:pt-8 relative z-10">
+    <div class="w-full max-w-7xl flex flex-col md:flex-row gap-8 pt-8 relative z-10">
       
-      <!-- Main Display (Camera/Preview) -->
-      <div class="w-full md:flex-1">
-        <div 
-          class="relative w-full bg-gray-900 rounded-lg overflow-hidden flex items-center justify-center shadow-lg mx-auto"
-          :style="{ aspectRatio: '1294 / 974' }"
-        >
-          <img v-if="currentStep === 'finalizing'" :src="photoData" alt="Ảnh đã hoàn thành" class="w-full h-full object-contain bg-transparent">
-          <img v-else-if="currentStep === 'reviewing'" :src="reviewPreviewData" alt="Xem lại ảnh" class="w-full h-full object-contain bg-gray-900">
-          <template v-else-if="isCameraOn">
-              <video 
-                  ref="videoRef" 
-                  autoplay 
-                  playsinline 
-                  muted 
-                  class="w-full h-full object-cover"
-                  :style="{ filter: filterCssMap[activeFilter], transform: 'scaleX(-1)' }"
-              ></video>
-          </template>
-          <div v-else class="h-full flex flex-col items-center justify-center text-center text-white p-4">
-            <svg class="w-16 h-16 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-            <p class="mt-2 font-medium">Camera đang tắt</p>
-            <p class="text-sm text-gray-300">Nhấn "Bật Camera" để bắt đầu</p>
-          </div>
-          <div v-if="countdown > 0" class="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-9xl font-bold z-20">{{ countdown }}</div>
-        </div>
-      </div>
-
-      <!-- Controls Panel -->
-      <div class="w-full md:w-[320px] md:flex-shrink-0 flex flex-col gap-4">
-        <div class="bg-white/80 backdrop-blur-sm p-4 rounded-xl shadow-md">
-          <h3 class="text-lg font-semibold text-sky-800 mb-3 text-center md:text-left">1. Chọn bố cục</h3>
+      <!-- Left Panel: Layout Selection -->
+      <div class="w-full md:w-[280px] md:flex-shrink-0 flex flex-col">
+        <div class="bg-white p-4 rounded-xl shadow-md">
+          <h3 class="text-lg font-semibold text-sky-800 mb-3 text-center md:text-left">Chọn loại bố cục</h3>
           <div class="flex md:flex-col gap-4 justify-center">
-            <div @click="selectFrame('single')" class="cursor-pointer group flex-1">
-              <div class="bg-white p-2 rounded-lg shadow-md border-2 transition-all" :class="[activeFrameType === 'single' ? 'border-sky-500 ring-2 ring-sky-300' : 'border-gray-200']">
-                <div class="w-full h-24 bg-gray-300 rounded-sm mx-auto flex items-center justify-center overflow-hidden"><svg class="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg></div>
+            
+            <div @click="selectFrame('single')" class="cursor-pointer group">
+              <div 
+                class="bg-white p-2 rounded-lg shadow-md border-2 transition-all"
+                :class="[activeFrameType === 'single' ? 'border-sky-500 ring-2 ring-sky-300' : 'border-gray-200']"
+              >
+                <div class="w-24 h-32 bg-gray-300 rounded-sm mx-auto flex items-center justify-center overflow-hidden">
+                  <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                </div>
               </div>
               <p class="text-center mt-2 text-sm font-medium" :class="[activeFrameType === 'single' ? 'text-sky-600' : 'text-gray-600 group-hover:text-sky-500']">Ảnh đơn</p>
             </div>
-            <div @click="selectFrame('strip')" class="cursor-pointer group flex-1">
-              <div class="bg-white p-2 rounded-lg shadow-md border-2 transition-all overflow-hidden" :class="[activeFrameType === 'strip' ? 'border-sky-500 ring-2 ring-sky-300' : 'border-gray-200']">
-                <div class="w-full h-24 flex flex-col mx-auto bg-gray-200"><div v-for="i in 4" :key="i" class="h-1/4 border-b border-gray-300"><svg class="w-full h-full text-gray-400 p-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg></div></div>
+            
+            <div @click="selectFrame('strip')" class="cursor-pointer group">
+              <div 
+                class="bg-white p-2 rounded-lg shadow-md border-2 transition-all overflow-hidden"
+                :class="[activeFrameType === 'strip' ? 'border-sky-500 ring-2 ring-sky-300' : 'border-gray-200']"
+              >
+                <div class="w-24 h-48 flex flex-col mx-auto bg-gray-200">
+                  <div v-for="i in 4" :key="i" class="h-1/4 border-b border-gray-300">
+                    <svg class="w-full h-full text-gray-400 p-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                  </div>
+                </div>
               </div>
               <p class="text-center mt-2 text-sm font-medium" :class="[activeFrameType === 'strip' ? 'text-sky-600' : 'text-gray-600 group-hover:text-sky-500']">Dải 4 ảnh</p>
             </div>
-            <div @click="selectFrame('grid_2x3')" class="cursor-pointer group flex-1">
-              <div class="bg-white p-2 rounded-lg shadow-md border-2 transition-all" :class="[activeFrameType === 'grid_2x3' ? 'border-sky-500 ring-2 ring-sky-300' : 'border-gray-200']">
-                <div class="w-full h-24 bg-gray-200 rounded-sm mx-auto grid grid-cols-2 grid-rows-3 gap-0.5 p-0.5"><div v-for="i in 6" :key="i" class="bg-gray-300"><svg class="w-full h-full text-gray-400 p-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg></div></div>
-              </div>
-              <p class="text-center mt-2 text-sm font-medium" :class="[activeFrameType === 'grid_2x3' ? 'text-sky-600' : 'text-gray-600 group-hover:text-sky-500']">Lưới 2x3</p>
-            </div>
-          </div>
-        </div>
-        
-        <div class="bg-white/80 backdrop-blur-sm p-4 rounded-xl shadow-md">
-          <div v-if="isCameraOn && currentStep === 'capturing'" class="mb-6">
-              <h4 class="text-lg font-semibold text-sky-800 mb-3 text-center md:text-left">2. Chọn bộ lọc</h4>
-              <div class="flex space-x-4 overflow-x-auto pb-3 -mx-2 px-2">
-                <div v-for="filter in filters" :key="filter.class" @click="applyFilter(filter.class)" class="flex-shrink-0 cursor-pointer text-center group">
-                  <div class="w-20 h-20 rounded-lg overflow-hidden border-2 transition-all duration-200" :class="[activeFilter === filter.class ? 'border-sky-500 ring-2 ring-sky-300' : 'border-transparent']">
-                    <img :src="previewImage" :class="filter.class" class="w-full h-full object-cover" alt="Preview bộ lọc">
-                  </div>
-                  <p class="mt-1.5 text-xs font-semibold transition-colors duration-200" :class="[activeFilter === filter.class ? 'text-sky-600' : 'text-gray-600 group-hover:text-sky-500']">{{ filter.name }}</p>
+
+            <div @click="selectFrame('grid_2x3')" class="cursor-pointer group">
+              <div 
+                class="bg-white p-2 rounded-lg shadow-md border-2 transition-all"
+                :class="[activeFrameType === 'grid_2x3' ? 'border-sky-500 ring-2 ring-sky-300' : 'border-gray-200']"
+              >
+                <div class="w-24 h-36 bg-gray-200 rounded-sm mx-auto grid grid-cols-2 grid-rows-3 gap-1 p-1">
+                    <div v-for="i in 6" :key="i" class="bg-gray-300">
+                        <svg class="w-full h-full text-gray-400 p-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    </div>
                 </div>
               </div>
+              <p class="text-center mt-2 text-sm font-medium" :class="[activeFrameType === 'grid_2x3' ? 'text-sky-600' : 'text-gray-600 group-hover:text-sky-500']">Lưới 2x3 (6 ảnh)</p>
+            </div>
+
+          </div>
+        </div>
+
+        <div v-if="isCameraOn && currentStep === 'capturing'" class="bg-white p-4 rounded-xl shadow-md mt-6">
+          <h4 class="text-lg font-semibold text-sky-800 mb-2 text-center md:text-left">Thời gian chụp</h4>
+          <div class="flex justify-center md:justify-start gap-2">
+            <button
+              v-for="time in captureTimeOptions"
+              :key="time"
+              @click="selectedCaptureTime = time"
+              :disabled="isCapturing"
+              class="px-3 py-1 rounded-full text-sm font-medium transition-colors disabled:opacity-50"
+              :class="selectedCaptureTime === time ? 'bg-sky-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'"
+            >{{ time }} giây</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Panel: Camera View and Controls -->
+      <div class="w-full md:flex-1">
+        <div class="bg-white/60 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-sky-200">
+          
+          <!-- Main Display Area -->
+          <div 
+            class="relative w-full bg-gray-900 rounded-lg overflow-hidden flex items-center justify-center mb-6 shadow-inner mx-auto"
+            :style="{ aspectRatio: '1294 / 974' }"
+          >
+            <!-- Finalizing Step -->
+            <img v-if="currentStep === 'finalizing'" :src="photoData" alt="Ảnh đã hoàn thành" class="w-full h-full object-contain bg-transparent">
+            
+            <!-- Reviewing Step -->
+            <img v-else-if="currentStep === 'reviewing'" :src="reviewPreviewData" alt="Xem lại ảnh" class="w-full h-full object-contain bg-gray-900">
+
+            <!-- Capturing Step -->
+            <template v-else-if="isCameraOn">
+                <video 
+                    ref="videoRef" 
+                    autoplay 
+                    playsinline 
+                    muted 
+                    class="w-full h-full object-cover"
+                    :style="{ filter: filterCssMap[activeFilter], transform: 'scaleX(-1)' }"
+                ></video>
+            </template>
+
+            <!-- Camera Off -->
+            <div v-else class="h-full flex flex-col items-center justify-center text-center text-white p-4">
+              <svg class="w-16 h-16 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+              <p class="mt-2 font-medium">Camera đang tắt</p>
+              <p class="text-sm text-gray-300">Nhấn "Bật Camera" để bắt đầu</p>
+            </div>
+
+            <div v-if="countdown > 0" class="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-9xl font-bold z-20">{{ countdown }}</div>
           </div>
           
+          <!-- Thumbnails for Strip/Grid -->
           <div v-if="activeFrameType !== 'single' && currentStep !== 'finalizing'" class="mb-6">
-            <h4 class="text-lg font-semibold text-sky-800 mb-3 text-center md:text-left">Ảnh đã chụp</h4>
-            <div class="grid gap-2 grid-cols-4">
+            <div class="grid gap-2 grid-cols-4 md:grid-cols-6">
                 <div v-for="i in maxPhotos" :key="i" class="relative aspect-square bg-gray-200 rounded-md flex items-center justify-center" :class="{'ring-2 ring-pink-500 ring-inset': currentStep === 'capturing' && stripCaptureStep === i - 1}">
                     <img v-if="photosInStrip[i-1]" :src="photosInStrip[i-1]" class="w-full h-full object-cover rounded-md">
                     <span v-else class="text-gray-400 font-bold text-2xl">{{ i }}</span>
@@ -743,8 +783,25 @@ onUnmounted(() => {
             </div>
           </div>
 
+          <canvas ref="canvasRef" class="hidden"></canvas>
+
+          <!-- Filters (Only show during capture) -->
+          <div v-if="isCameraOn && currentStep === 'capturing'" class="mb-6">
+              <div class="flex space-x-4 overflow-x-auto pb-3 -mx-2 px-2">
+                <div v-for="filter in filters" :key="filter.class" @click="applyFilter(filter.class)" class="flex-shrink-0 cursor-pointer text-center group">
+                  <div class="w-20 h-20 rounded-lg overflow-hidden border-2 transition-all duration-200" :class="[activeFilter === filter.class ? 'border-sky-500 ring-2 ring-sky-300' : 'border-transparent']">
+                    <img :src="previewImage" :class="filter.class" class="w-full h-full object-cover" alt="Preview bộ lọc">
+                  </div>
+                  <p class="mt-1.5 text-xs font-semibold transition-colors duration-200" :class="[activeFilter === filter.class ? 'text-sky-600' : 'text-gray-600 group-hover:text-sky-500']">{{ filter.name }}</p>
+                </div>
+              </div>
+            </div>
+          
+          <!-- Controls -->
           <div class="flex flex-col justify-center items-center gap-4">
+        
             <div class="flex flex-wrap justify-center items-center gap-4">
+              <!-- Step 1: Not started or Capturing -->
               <template v-if="currentStep === 'capturing'">
                 <button v-if="!isCameraOn" @click="startCamera" class="w-full sm:w-auto px-8 py-3 bg-sky-500 text-white font-semibold rounded-full hover:bg-sky-600 transition-all duration-300 shadow-md transform hover:scale-105">Bật Camera</button>
                 <template v-else>
@@ -752,30 +809,89 @@ onUnmounted(() => {
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                       <span>{{ captureButtonText }}</span>
                     </button>
+
+                    <button v-if="activeFrameType !== 'single' && !areAllPhotosTaken" @click="toggleContinuousShooting" class="w-full sm:w-auto px-6 py-3 font-semibold rounded-full transition-all duration-300 shadow-md transform hover:scale-105" :class="[isContinuousShooting ? 'bg-purple-600 text-white animate-pulse' : 'bg-gray-200 text-gray-800 hover:bg-gray-300']" :disabled="isCapturing && !isContinuousShooting">
+                      {{ isContinuousShooting ? 'Dừng chụp' : 'Chụp liên tục' }}
+                    </button>
                     <button @click="triggerFileUpload" class="w-full sm:w-auto px-8 py-3 bg-sky-500 text-white font-semibold rounded-full hover:bg-sky-600 transition-all duration-300 shadow-md transform hover:scale-105" :disabled="areAllPhotosTaken">Tải ảnh lên</button>
                 </template>
               </template>
-              <template v-if="currentStep === 'reviewing'"><button @click="retakePhoto" class="px-6 py-3 bg-gray-500 text-white font-semibold rounded-full hover:bg-gray-600 transition-all duration-300 shadow-md">Chụp lại</button><button @click="proceedToFinalize" class="px-8 py-3 bg-green-500 text-white font-semibold rounded-full hover:bg-green-600 transition-all duration-300 shadow-md transform hover:scale-105">Tiếp tục</button></template>
-              <template v-if="currentStep === 'finalizing'"><button @click="retakePhoto" class="px-6 py-3 bg-gray-500 text-white font-semibold rounded-full hover:bg-gray-600 transition-all duration-300 shadow-md">Chụp lại</button><a :href="isDownloadReady ? photoData : '#'" :download="isDownloadReady ? `photobooth-${activeFrameType}-${Date.now()}.png` : null" @click="!isDownloadReady && $event.preventDefault()" class="flex items-center justify-center w-40 text-center px-6 py-3 text-white font-semibold rounded-full transition-colors duration-300 shadow-md" :class="isDownloadReady ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-400 cursor-not-allowed'"><span v-if="isDownloadReady">Tải xuống</span><span v-else>Đợi {{ downloadCountdown }}s...</span></a></template>
+              
+              <!-- Step 2: Reviewing Photo -->
+              <template v-if="currentStep === 'reviewing'">
+                  <button @click="retakePhoto" class="px-6 py-3 bg-gray-500 text-white font-semibold rounded-full hover:bg-gray-600 transition-all duration-300 shadow-md">Chụp lại</button>
+                  <button @click="proceedToFinalize" class="px-8 py-3 bg-green-500 text-white font-semibold rounded-full hover:bg-green-600 transition-all duration-300 shadow-md transform hover:scale-105">
+                    Tiếp tục
+                  </button>
+              </template>
+              
+              <!-- Step 3: Finalizing (Frame selection, download) -->
+              <template v-if="currentStep === 'finalizing'">
+                <button @click="retakePhoto" class="px-6 py-3 bg-gray-500 text-white font-semibold rounded-full hover:bg-gray-600 transition-all duration-300 shadow-md">Chụp lại</button>
+                
+                <div class="flex items-center gap-3 bg-gray-200 p-2 rounded-full shadow-inner">
+                  <label for="frameColor" class="text-sm font-medium text-gray-700 pl-2">Màu nền:</label>
+                  <div class="flex items-center gap-2">
+                    <span
+                      v-for="color in suggestedColors"
+                      :key="color"
+                      @click="frameColor = color"
+                      class="w-6 h-6 rounded-full cursor-pointer transition-transform hover:scale-110"
+                      :style="{ backgroundColor: color }"
+                      :class="[frameColor === color ? 'ring-2 ring-offset-2 ring-sky-500' : 'ring-1 ring-gray-400']"
+                    ></span>
+                  </div>
+                  <input type="color" v-model="frameColor" id="frameColor" class="w-8 h-8 p-0 border-none rounded-full cursor-pointer bg-transparent" style="height: 2rem; width: 2rem;">
+                </div>
+                
+                <a 
+                  :href="isDownloadReady ? photoData : '#'" 
+                  :download="isDownloadReady ? `photobooth-${activeFrameType}-${Date.now()}.png` : null"
+                  @click="!isDownloadReady && $event.preventDefault()"
+                  class="flex items-center justify-center w-40 text-center px-6 py-3 text-white font-semibold rounded-full transition-colors duration-300 shadow-md"
+                  :class="isDownloadReady ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-400 cursor-not-allowed'">
+                  <span v-if="isDownloadReady">Tải xuống</span>
+                  <span v-else>Đợi {{ downloadCountdown }}s...</span>
+                </a>
+              </template>
             </div>
+
+            <!-- Frame Selection (Only show during finalization) -->
             <div v-if="currentStep === 'finalizing'" class="w-full bg-gray-100 p-4 rounded-lg mt-4">
               <h4 class="text-sm font-semibold text-gray-800 mb-3 text-center">Chọn khung trang trí</h4>
               <div class="flex flex-wrap justify-center gap-4">
-                <div @click="selectedOverlayFrame = null" class="cursor-pointer text-center group"><div class="w-24 h-24 rounded-lg flex items-center justify-center bg-gray-300 border-2 transition-all" :class="!selectedOverlayFrame ? 'border-sky-500 ring-2 ring-sky-300' : 'border-gray-400 group-hover:border-sky-400'"><svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg></div><p class="text-xs mt-1.5 font-medium" :class="!selectedOverlayFrame ? 'text-sky-600' : 'text-gray-600'">Không</p></div>
-                <div v-for="frameUrl in availableFrames[activeFrameType]" :key="frameUrl" @click="selectedOverlayFrame = frameUrl" class="cursor-pointer text-center group"><img :src="frameUrl" class="w-24 h-24 object-contain rounded-lg border-2 bg-white transition-all" :class="selectedOverlayFrame === frameUrl ? 'border-sky-500 ring-2 ring-sky-300' : 'border-gray-300 group-hover:border-sky-400'"></div>
+                <div @click="selectedOverlayFrame = null" class="cursor-pointer text-center group">
+                  <div class="w-24 h-24 rounded-lg flex items-center justify-center bg-gray-300 border-2 transition-all" :class="!selectedOverlayFrame ? 'border-sky-500 ring-2 ring-sky-300' : 'border-gray-400 group-hover:border-sky-400'">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                  </div>
+                  <p class="text-xs mt-1.5 font-medium" :class="!selectedOverlayFrame ? 'text-sky-600' : 'text-gray-600'">Không</p>
+                </div>
+                <div v-for="frameUrl in availableFrames[activeFrameType]" :key="frameUrl" @click="selectedOverlayFrame = frameUrl" class="cursor-pointer text-center group">
+                  <img :src="frameUrl" class="w-24 h-24 object-contain rounded-lg border-2 bg-white transition-all" :class="selectedOverlayFrame === frameUrl ? 'border-sky-500 ring-2 ring-sky-300' : 'border-gray-300 group-hover:border-sky-400'">
+                </div>
               </div>
             </div>
+
           </div>
         </div>
       </div>
     </div>
+
+    <!-- Cropping Modal -->
     <div v-if="isCropping" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
       <div class="bg-white p-6 rounded-lg shadow-xl max-w-2xl w-full">
         <h3 class="text-xl font-semibold mb-4">Cắt ảnh</h3>
-        <div class="max-h-[60vh]"><img ref="cropImageRef" :src="imageToCrop" alt="Image to crop" class="max-w-full"></div>
-        <div class="flex justify-end gap-4 mt-4"><button @click="cancelCrop" class="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400 transition">Hủy</button><button @click="confirmCrop" class="px-4 py-2 bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition">Xác nhận</button></div>
+        <div class="max-h-[60vh]">
+          <img ref="cropImageRef" :src="imageToCrop" alt="Image to crop" class="max-w-full">
+        </div>
+        <div class="flex justify-end gap-4 mt-4">
+          <button @click="cancelCrop" class="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400 transition">Hủy</button>
+          <button @click="confirmCrop" class="px-4 py-2 bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition">Xác nhận</button>
+        </div>
       </div>
     </div>
+
+    <!-- Hidden file input -->
     <input type="file" ref="fileInput" @change="onFileChange" accept="image/*" class="hidden">
   </div>
 </template>
@@ -783,13 +899,17 @@ onUnmounted(() => {
 <style scoped>
 @import 'https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css';
 
-.filter-beautify { filter: saturate(1.2) brightness(1.1); }
+/* These CSS filters are now only for the small preview images in the UI */
+.filter-beautify { 
+  filter: brightness(1.1) saturate(1.25);
+}
 .filter-none { filter: none; }
 .filter-grayscale { filter: grayscale(100%); }
 .filter-sepia { filter: sepia(80%); }
 .filter-contrast { filter: contrast(125%); }
-.filter-vintage { filter: sepia(60%) contrast(110%) brightness(90%); }
-.filter-summer { filter: saturate(150%) contrast(110%) hue-rotate(-10deg); }
+.filter-vintage { filter: sepia(60%) contrast(110%) brightness(90%) saturate(120%); }
+.filter-summer { filter: saturate(160%) brightness(110%) contrast(110%) hue-rotate(-10deg); }
+
 
 .overflow-x-auto::-webkit-scrollbar { 
   height: 6px; 
