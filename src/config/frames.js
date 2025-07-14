@@ -25,7 +25,7 @@ export const availableFrames = ref({
     '/frames/strip/3cogaistrip.png',
     '/frames/strip/thohongstrip.png',
     '/frames/strip/snoopystrip.png',
-    '/frames/single/hoastrip.png',
+    '/frames/strip/hoastrip.png',
   ],
   grid_2x3: [
     '/frames/grid_2x3/cutegrid.png',
@@ -34,6 +34,6 @@ export const availableFrames = ref({
     '/frames/grid_2x3/3cogaigrid.png',
     '/frames/grid_2x3/thohonggrid.png',
     '/frames/grid_2x3/quadaugrid.png',
-    '/frames/single/hoagrid.png',
+    '/frames/grid_2x3/hoagrid.png',
   ]
 });
