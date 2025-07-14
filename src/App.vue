@@ -45,7 +45,11 @@ const isDonateModalVisible = ref(false);
     </main>
 
     <footer class="relative z-10 px-6 py-8 mt-20 text-center text-gray-600">
-      <p>© 2025 SmileUp!. All Rights Reserved.</p>
+      <p>
+        Phát triển và thiết kế bởi 
+        <a href="https://www.facebook.com/longha1O2" target="_blank" rel="noopener noreferrer" class="text-sky-600 hover:text-sky-800 font-semibold transition-colors">Long Hà</a> & 
+        <a href="https://www.facebook.com/AD1202" target="_blank" rel="noopener noreferrer" class="text-sky-600 hover:text-sky-800 font-semibold transition-colors">Dũng Phạm</a>.
+      </p>
     </footer>
 
     <!-- MODAL HIỂN THỊ QR CODE -->
