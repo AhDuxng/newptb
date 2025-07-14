@@ -15,6 +15,7 @@ export const availableFrames = ref({
     '/frames/single/thohongsingle.png',
     '/frames/single/quadausingle.png',
     '/frames/single/hoasingle.png',
+    '/frames/single/tranhuonggiang.png',
   ],
   strip: [
     '/frames/strip/cutestrip.png',
